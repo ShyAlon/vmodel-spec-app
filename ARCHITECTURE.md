@@ -75,7 +75,7 @@ from `vmodel-contracts` and nothing else.
 **Decision.** Five repositories, not a monorepo. The contracts between
 modules are real versioned artifacts: `vmodel-contracts` is a published
 package; each module pins an exact release
-(`vmodel-contracts @ git+https://github.com/ShyAlon/vmodel-contracts.git@v0.1.0`).
+(`vmodel-contracts @ git+https://github.com/ShyAlon/vmodel-contracts.git@v0.2.0`).
 
 **Reasoning.** The owner wants repos that can live separately, and the repo
 boundary *forces* interface discipline - the strongest argument for
@@ -331,6 +331,31 @@ error back to the model. A contract-invalid intent model never leaves the
 graph. Root cause of the first field crash (2026-09-08): a 14B local model
 emitted `source_turns` values as `{}` instead of lists, and validation used
 to happen only in the CLI, outside any retry loop.
+
+### ADR-0012: The intent model speaks systems engineering (v0.2.0)
+
+**Decision.** IntentModel now carries `stakeholder_needs[]`: SN-ids, founder
+language, each classified `functional` | `non_functional`, each traced to
+transcript turns. Needs are distinct from the scope boundary (in/out) and
+from requirements - verifiable shall-statements stay downstream in
+spec-generator (RequirementSet), which now tags every requirement with the
+same `kind` and carries SN->N->R traceability (`intent_need_ids`).
+
+**Classification discipline (taught to the distillation prompt, with his
+run-1 counterexamples):** "MFA with a common provider" is a non-functional
+security need, not an integration. "No limitation" is not a constraint.
+Constraints limit the design space; everything else is a need or scope.
+
+**Version policy refinement (ADR-0002).** Required-field additions may ride
+a MINOR bump ONLY because consumers call `check_compatible()` (contracts
+compat.py) before reading: a wrong-minor payload fails loudly with the
+migration path named, never silently misreads. The approval render now shows
+the needs split and says plainly that requirements are derived next.
+
+**Why needs at intent time AND at spec time:** they are different artifacts.
+SN = what the founder said they need (approval gate). N = analyzed
+stakeholder needs with stakeholder attribution. R = verifiable requirements.
+Collapsing them is how PRD generators pretend to be systems engineering.
 
 ## 8. What the demo does NOT do (the cut list)
 
