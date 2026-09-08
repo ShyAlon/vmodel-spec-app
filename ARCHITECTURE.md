@@ -123,6 +123,13 @@ exists exactly so a stage can move to Sonnet-class without code changes.
 (b) Some testers will ask where their data goes; the one-line answer and
 the swap path must both be ready.
 
+**Ollama for local runs.** A fourth provider, `ollama`, runs every LLM stage
+locally (OpenAI-compatible endpoint at `localhost:11434/v1`, embeddings via
+`nomic-embed-text`): offline, $0, logged as such in telemetry. This is the
+development and test loop - quality judgments about the demo, especially the
+interview and the verdicts, are made on the real provider, because those
+stages are the moat and local models visibly under-perform there.
+
 ### ADR-0004: Hybrid cost design - the LLM owns judgment, code owns structure
 
 **Decision.** Design B from the cost addendum, pushed as far toward
