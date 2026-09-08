@@ -35,3 +35,57 @@ Anything else (native mobile, desktop, hardware, CLI tooling) gets a polite,
 specific decline at intake. Five archetypes named; one opinionated stack for
 the demo. One target agent: Claude Code. Step 2 (physical systems) is
 deliberately out.
+
+## Run it locally
+
+Prereqs: Python 3.10+, git, and (for offline runs) [Ollama](https://ollama.com).
+
+```bash
+# 1. Clone what you need
+git clone https://github.com/ShyAlon/vmodel-spec-app.git       # docs (this repo)
+git clone https://github.com/ShyAlon/vmodel-contracts.git      # always required
+git clone https://github.com/ShyAlon/interview-engine.git      # core loop
+git clone https://github.com/ShyAlon/spec-generator.git        # core loop
+git clone https://github.com/ShyAlon/verification-loop.git     # verify a build
+git clone https://github.com/ShyAlon/delivery-api.git          # only for the hosted API layer
+
+# 2. One venv at the parent folder
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e "./vmodel-contracts[dev]"
+pip install -e "./interview-engine[dev]"
+pip install -e "./spec-generator[dev]"
+pip install -e "./verification-loop[dev]"
+```
+
+Modules pin `vmodel-contracts` from its GitHub tag; pip uses your local git
+credentials for that fetch. If the pin fetch fails, fall back per module:
+`pip install -e . --no-deps && pip install langgraph langchain-core langchain-openai httpx pytest`.
+
+```bash
+# 3. Tests (no API key needed for the deterministic suites)
+cd interview-engine && pytest -q && cd ..
+
+# 4. Ollama for local LLM runs (offline, $0)
+ollama pull qwen2.5-coder:14b && ollama pull nomic-embed-text
+
+# 5. First end-to-end pass: interview -> intent model (you approve it)
+export INTERVIEW_ENGINE_MODEL_PROBING=ollama:qwen2.5-coder:14b
+export INTERVIEW_ENGINE_MODEL_DISTILLATION=ollama:qwen2.5-coder:14b
+export INTERVIEW_ENGINE_MODEL_PHRASING=ollama:qwen2.5-coder:14b
+export INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=ollama:qwen2.5-coder:14b
+python -m interview_engine.cli "a marketplace for surf lessons in Tel Aviv"
+# -> out/<session>/intent_model.json (+ .md for review, usage.jsonl for cost)
+
+# 6. Intent -> full spec bundle
+for s in NEEDS REQUIREMENTS ARCHITECTURE ITEMS TESTS REVIEW; do
+  export SPEC_GENERATOR_MODEL_$s=ollama:qwen2.5-coder:14b
+done
+python -m spec_generator.cli out/<session>/intent_model.json -o bundle/
+# -> bundle/AGENTS.md, specs/, manifest.json, traceability.json, tests.json
+```
+
+To run against DeepSeek instead of Ollama: skip the `*_MODEL_*` exports and
+`export DEEPSEEK_API_KEY=...`. Every stage's model is an env override; see
+`model_config.py` in each module. Caveat from ADR-0003: local models are the
+dev loop - judge demo quality on the real provider, because the interview and
+the verdicts are the moat.
