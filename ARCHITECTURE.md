@@ -357,6 +357,28 @@ SN = what the founder said they need (approval gate). N = analyzed
 stakeholder needs with stakeholder attribution. R = verifiable requirements.
 Collapsing them is how PRD generators pretend to be systems engineering.
 
+### ADR-0013: Distillation is phased and visible; assumptions are not needs
+
+**Decision.** Distillation runs as four visible phases on the ProgressEvent
+stream (ADR-0010): extract needs -> build scope/framing -> requirement preview
+-> assemble/validate. Each LLM phase is small (local-14B friendly), validated
+independently, retried once with schema feedback. The preview phase drafts 2-3
+SAMPLE derived requirements for the approval gate (the founder sees the SN->R
+chain before approving); it is presentation-only and degrades gracefully - the
+system of record never depends on it. Preview samples are persisted
+(requirement_preview.json) but are NOT contracts; spec-generator derives the
+real RequirementSet.
+
+**Quality rules taught to the prompts from run-2 review:** the interviewer
+presses ONCE with a concrete counterexample when a founder waves away a
+conflict/consistency question, then captures the dismissal as an ASSUMPTION
+(IntentModel.assumptions, v0.3.0) - asserted, validated later, never built as
+a need. out_of_scope may not be empty (an empty boundary is an unverified
+boundary; the renderer says so explicitly if it happens anyway). Constraints
+limit the design space only (budget caps, mandated stack, deadlines, team,
+external compliance); a quality the system must HAVE is a non-functional need
+- no statement appears in two sections.
+
 ## 8. What the demo does NOT do (the cut list)
 
 No accounts, no payments, no dashboards, no run-history UI, no multiple
