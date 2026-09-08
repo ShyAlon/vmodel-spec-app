@@ -66,19 +66,24 @@ credentials for that fetch. If the pin fetch fails, fall back per module:
 cd interview-engine && pytest -q && cd ..
 
 # 4. Ollama for local LLM runs (offline, $0)
-ollama pull qwen2.5-coder:14b && ollama pull nomic-embed-text
+Model size: `qwen2.5-coder:7b` is the default recommendation and runs fine on
+a 16GB machine. `qwen2.5-coder:14b` is better but wants 32GB+ RAM. Set
+`OLLAMA_NUM_PARALLEL=1` so Ollama never loads two models at once (the chat
+model plus `nomic-embed-text` would otherwise compete for RAM).
+
+ollama pull qwen2.5-coder:7b && ollama pull nomic-embed-text
 
 # 5. First end-to-end pass: interview -> intent model (you approve it)
-export INTERVIEW_ENGINE_MODEL_PROBING=ollama:qwen2.5-coder:14b
-export INTERVIEW_ENGINE_MODEL_DISTILLATION=ollama:qwen2.5-coder:14b
-export INTERVIEW_ENGINE_MODEL_PHRASING=ollama:qwen2.5-coder:14b
-export INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=ollama:qwen2.5-coder:14b
+export INTERVIEW_ENGINE_MODEL_PROBING=ollama:qwen2.5-coder:7b
+export INTERVIEW_ENGINE_MODEL_DISTILLATION=ollama:qwen2.5-coder:7b
+export INTERVIEW_ENGINE_MODEL_PHRASING=ollama:qwen2.5-coder:7b
+export INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=ollama:qwen2.5-coder:7b
 python -m interview_engine.cli "a marketplace for surf lessons in Tel Aviv"
 # -> out/<session>/intent_model.json (+ .md for review, usage.jsonl for cost)
 
 # 6. Intent -> full spec bundle
 for s in NEEDS REQUIREMENTS ARCHITECTURE ITEMS TESTS REVIEW; do
-  export SPEC_GENERATOR_MODEL_$s=ollama:qwen2.5-coder:14b
+  export SPEC_GENERATOR_MODEL_$s=ollama:qwen2.5-coder:7b
 done
 python -m spec_generator.cli out/<session>/intent_model.json -o bundle/
 # -> bundle/AGENTS.md, specs/, manifest.json, traceability.json, tests.json
