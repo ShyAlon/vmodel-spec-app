@@ -283,6 +283,55 @@ boundary work goes into the contracts, not into more repositories.
 - Secrets in env vars, never in repos. CI runs tests only - no deployment,
   no paid infra, without an explicit decision.
 
+### ADR-0010: Progress is a structured event stream; printers are consumers
+
+**Decision.** Every long-running stage (scope gate, each interview turn,
+distillation, all six generation stages, assembly) emits `ProgressEvent`s to
+an in-process `ProgressBus`:
+
+```
+stage:     machine name, stable per pipeline step ('distill_intent')
+label:     human present-tense phrase ('Distilling intent model')
+status:    'started' | 'completed' | 'failed'
+ts:        epoch seconds
+elapsed_s: stage duration (completed/failed only)
+detail:    optional context ('turn 4', 'stage 3/6')
+```
+
+The CLI's stderr printer is ONE consumer. delivery-api and the web UI will
+subscribe to (or receive) the same event stream - the founder watches a live
+step list, not a spinner. The shape is deliberately identical in
+interview-engine and spec-generator (duplicated modules, like errors.py).
+**Promotion rule:** when events cross a process boundary to the UI, the shape
+moves into vmodel-contracts with a MINOR version bump (ADR-0002). Until then
+it is intra-module and documented here.
+
+**Why not print statements:** prints can't feed a UI. **Why not a shared
+package now:** nothing crosses a boundary yet; premature contract surface is
+its own cost.
+
+### ADR-0011: Checkpoints live on disk; a crash is a resume, not a loss
+
+**Decision.** The CLIs use LangGraph's `SqliteSaver` at
+`out/<session>/checkpoints.sqlite` (thread id = session id). A crash
+mid-interview, mid-generation, or even at final validation resumes with
+`python -m interview_engine.cli --session <id>` (interview) or by rerunning
+the same command (spec-generator). Completed stages are never re-paid: the
+checkpoint short-circuits them on resume.
+
+**State is JSON-native.** Models and enums enter state via
+`model_dump(mode="json")` so the msgpack serde never hits an unregistered
+type across LangGraph upgrades (`AppArchetype` is additionally allow-listed
+in the serde as belt-and-braces).
+
+**Distillation validates in-node.** The intent model is schema-validated
+inside the distill node, with mechanical shape-drift repair
+(`source_turns: {}` and friends) plus ONE retry that feeds the validation
+error back to the model. A contract-invalid intent model never leaves the
+graph. Root cause of the first field crash (2026-09-08): a 14B local model
+emitted `source_turns` values as `{}` instead of lists, and validation used
+to happen only in the CLI, outside any retry loop.
+
 ## 8. What the demo does NOT do (the cut list)
 
 No accounts, no payments, no dashboards, no run-history UI, no multiple
