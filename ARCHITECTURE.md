@@ -392,3 +392,30 @@ Wizard-of-Oz allowance for the first five runs (decide explicitly so
 results are read honestly); magic-link return path if testers need to come
 back; Spec Kit layout vs proprietary (ADR-0009, revisit after ten runs);
 DeepSeek quality check on moat stages before founder-facing runs.
+
+### ADR-0014: Tier-a method pack - curated static SE knowledge (SWEBOK v4.0a), sectioned per stage
+
+**Decision.** Knowledge augmentation starts with a curated METHOD pack, not
+RAG: `method_pack.md` in vmodel-contracts (shipped with the package since
+0.3.1, loaded via `load_method_pack(sections=[...])`). The pack is SE
+interview/requirements knowledge RESTATED in our own words from the IEEE
+SWEBOK Guide v4.0a (Software Requirements KA), with attribution - IEEE's
+license permits educational/personal use with citation but not wholesale
+redistribution, so no verbatim excerpts ship in the repo. Size is a hard
+contract: METHOD_PACK_TOKEN_CAP = 2000, enforced by tests; the pack ships
+sectioned ("1".."5") and each stage loads only its slice (interviewer +
+distill-needs take taxonomy+elicitation; distill-scope takes conflict/scope;
+preview takes well-formed-requirement rules) because prompt tokens on a local
+14B are the scarce resource. The pack shapes QUESTIONS and QUALITY BAR only;
+it never answers for the founder and never becomes a need by itself.
+
+**Memorization probe.** `tools/swebok_probe/probe_swebok.py` (meta repo)
+answers "was the model already trained on SWEBOK v4?" empirically: it samples
+distinctive passages from the user's LOCAL PDF copy (no book text in the
+repo), asks the local model to complete them, and scores verbatim n-gram
+overlap. Stdlib-only, Ollama-only, zero cost.
+
+**Rejected.** True RAG (domain packs with local embeddings + sqlite-vec) is
+deferred until a real domain interview proves the method pack insufficient
+(user decision 2026-09-08). ISO/IEC/IEEE 29148 and INCOSE are paywalled and
+not used; NASA SE Handbook / SWEHB / MITRE SEG remain fallback corpora.
