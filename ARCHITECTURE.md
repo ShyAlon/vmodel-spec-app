@@ -419,3 +419,36 @@ overlap. Stdlib-only, Ollama-only, zero cost.
 deferred until a real domain interview proves the method pack insufficient
 (user decision 2026-09-08). ISO/IEC/IEEE 29148 and INCOSE are paywalled and
 not used; NASA SE Handbook / SWEHB / MITRE SEG remain fallback corpora.
+
+### ADR-0015: Distillation discipline is MECHANICAL, not prompted (run-3 defects)
+
+**Decision.** Prompt-level discipline failed twice (run 2 and run 3), so the
+rules moved into deterministic code (`distill_qa.py` in interview-engine,
+contracts 0.4.0):
+
+1. **Grounded assumptions.** New `Assumption{statement, source_turns}`
+   (min one turn). After distillation, `ground_assumptions` drops any
+   assumption whose turns are out of range, whose statement shares no
+   vocabulary with its source turns, or that echoes prompt wording (the run-3
+   "fabrication" was the model echoing the prompt's own EXAMPLES - the
+   concrete examples were removed from prompts AND an echo guard was added).
+   The legacy flat `assumptions` field is deprecated and always dropped.
+2. **Constraint dedup.** `dedup_constraints` mechanically drops any constraint
+   whose content vocabulary is already a classified need (SSO/MFA, no-PII,
+   simple, scale in run 3). Constraints limit the design space; the code now
+   enforces what the prompt could not.
+3. **Provenance-carried exclusions.** New `ScopeExclusion{item, source_turns,
+   explicit}`: founder-said exclusions render as boundary; inferred ones
+   render as CANDIDATES for confirmation; a deterministic flag marks any
+   exclusion sharing vocabulary with the problem statement / core value /
+   in-scope (run-3 "excluded predictive analytics from a predict-and-preempt
+   product").
+4. **Preview solution language.** `is_solution_language` strips criteria that
+   name endpoints/status codes/JSON/UI widgets; prompt updated to require
+   observable outcomes.
+5. **Done-criteria and operational concepts** are first-class captures
+   (IntentModel.done_criteria / .operational_concepts), not needs.
+
+Contracts 0.4.0 is additive (new optional models/fields; the deprecated flat
+assumptions field still parses) - a MINOR bump per ADR-0002/0012. All module
+pins move together because the version gate requires major.minor equality.
