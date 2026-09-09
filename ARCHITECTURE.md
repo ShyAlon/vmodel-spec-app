@@ -61,7 +61,7 @@ from `vmodel-contracts` and nothing else.
 | Module | Owns | Produces | Consumes |
 |---|---|---|---|
 | interview-engine | scope gate, adaptive interview, intent distillation, review gate | `ScopeVerdict`, `InterviewTranscript`, `IntentModel` | `IntakeSubmission` |
-| spec-generator | needs -> requirements -> architecture -> item specs -> tests, staged drafts, review passes | `StakeholderNeedsSet`, `RequirementSet`, `ArchitectureOverview`, `SpecBundle`, `SpecManifest`, `AcceptanceTest` set | `IntentModel` |
+| spec-generator | needs -> SRS -> architecture -> item specs -> tests, staged drafts, review passes | `StakeholderNeedsSet`, `SRSDocument`, `RequirementSet` (flat view), `ArchitectureOverview`, `SpecBundle`, `SpecManifest`, `AcceptanceTest` set | `IntentModel` |
 | verification-loop | founder-side test package, deterministic checks, semantic-residue judging, verdict report | `VerificationReport`, runner artifact | `SpecBundle` + build artifact ref |
 | delivery-api | run links, run state machine, background jobs, storage, budget hard stop, cost ledger | `RunLink`, `RunStatus`, `RunCostReport`, `DeliveryBundle` | everything, through contracts |
 | vmodel-contracts | the boundary itself | versioned models + JSON Schemas | - |
@@ -470,3 +470,30 @@ turn drift. Per-turn progress line on the ProgressEvent stream; the approval
 gate renders the honest coverage map (covered / thin / skipped / not
 covered). Glossary is contracts 0.5.0 (additive): IntentModel.glossary pins
 the founder's terms to founder meanings.
+
+### ADR-0017: The SRS is a standalone, solution-agnostic artifact - downstream references, never absorbs
+
+**Decision.** spec-generator's requirements stage produces an SRSDocument
+(contracts 0.6.0): purpose, scope summary, definitions (carried
+DETERMINISTICALLY from the intent glossary - never re-asked of the LLM),
+sectioned functional/non-functional requirements, constraints, assumptions,
+open questions. Doctrine: the SRS says WHAT is verifiably true, never HOW -
+requirement statements and acceptance criteria are observable
+shall-statements with no endpoints, status codes, UI widgets, or named
+technologies, and no invented artifacts or numbers (the run-5 interview
+guards - text_qa, now shared in the contracts package - run mechanically
+over SRS output; violations land in the punch list). The executable HOW
+(AcceptanceCriterion.executable_hint: http probes, DOM selectors, db checks)
+is authored at the TEST stage, where the architecture exists. Architecture
+and item specs REFERENCE requirement ids through the traceability matrix;
+restating requirement text downstream is a defect the review prompt names.
+requirements.md is retired outright; the bundle ships srs.md (manifest
+bundle_version 0.2.0). Each V level keeps its own pairing: acceptance tests
+pair with SRS criteria, unit/module tests pair with item specs.
+
+**Why.** Run-5 review: the old METHODOLOGY prompt literally taught
+solution-flavored criteria ("GET /health returns 200") at the requirements
+level, and item specs were told to absorb requirements - the two failure
+modes (invented tech, regrouping) the founder flagged. A standalone SRS is
+also the artifact a prospect recognizes.
+
