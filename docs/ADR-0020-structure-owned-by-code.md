@@ -69,7 +69,9 @@ wrong and need no new model capability. The tool-calling path is OPT-IN
 the founder's machine that qwen2.5-coder:14b via Ollama emits well-formed,
 schema-conformant tool calls reliably (and how it degrades when it can't).
 The non-tool fallback is the 1:1 skeleton: no splits, no additions - a
-complete, valid document every time.
+complete, valid document every time. (Probe outcome: SILENT on
+qwen2.5-coder:14b - see below; the flag remains as the hook for future
+models.)
 
 ## Consequences
 
@@ -84,3 +86,36 @@ complete, valid document every time.
   rationale, descriptions, runner definitions. The authoring quality bar
   (grounded, solution-agnostic, no invented detail, text_qa guards) is
   unchanged.
+
+## Probe outcome (2026-09-09, founder's machine)
+
+`scripts/probe_tools.py` against Ollama 0.33.0, qwen2.5-coder:14b, stage
+temperature 0.2. Verdict: SILENT - zero native tool calls in all four
+scenarios.
+
+- split_expected: the model DECLINED to split a genuinely compound need
+  ("ingest signup CSV uploads and give me a live conversion dashboard"),
+  judging the 1:1 skeleton sufficient. Weak structural judgment.
+- no_split_expected: correctly quiet on atomic needs.
+- link_trace: the tell - the model WROTE the tool call as prose (a
+  fenced `{"name": "link_requirement_to_need", "arguments":
+  {"requirement_id": "R-1", "need_id": "SN-2"}}` block, valid and
+  schema-conformant) instead of emitting a native tool call.
+- add_test: declined, judged the skeleton sufficient.
+
+**Decision: `SPEC_GENERATOR_TOOLS` stays default-off for the 14b path.**
+The binding constraint is structural judgment, not tool syntax: even with
+perfect native emission, a model that will not split a compound need
+makes the tool path a no-op. The env flag, the validating toolboxes, and
+the probe stay in the tree as the hook and the harness for future models
+(`python scripts/probe_tools.py <model>`).
+
+**Parked, not built: a prose-call shim.** The link_trace output shows the
+model can express a well-formed call as fenced JSON. A shim that
+tolerant-extracts `{"name", "arguments"}` blocks from prose output (the
+same `_extract_json` machinery the pipeline already runs) and feeds them
+to the same validating handlers would be cheap. It is not worth building
+now: syntax was never the bottleneck - judgment was. Revisit only if a
+future local model passes the judgment half of the probe (splits the
+compound need on split_expected) while still failing native emission;
+the shim converts exactly that gap and nothing else.
