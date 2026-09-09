@@ -497,3 +497,20 @@ level, and item specs were told to absorb requirements - the two failure
 modes (invented tech, regrouping) the founder flagged. A standalone SRS is
 also the artifact a prospect recognizes.
 
+
+### ADR-0018: Local-first model defaults - Ollama everywhere until production
+
+**Decision.** Every LLM stage in every module (interview-engine probing /
+distillation / phrasing / scope_tiebreak, spec-generator needs / srs /
+architecture / items / tests / review, verification-loop residue_judge)
+defaults to local Ollama (`qwen2.5-coder:7b`; the 14b upgrade is one env
+block). Remote providers (DeepSeek, OpenAI, Anthropic) are OPT-IN per stage
+via the existing `<MODULE>_MODEL_<STAGE>` env overrides. This reverses the
+original DeepSeek-first default.
+
+**Why.** The product owner's standing call, verbatim: "It should all be
+ollama by default. We'll change it once we go to production." The demo loop
+must run keyless at $0; a default that crashes without an API key (run-5,
+spec-generator stage 'needs') is a default pointed the wrong way. Remote
+quality for founder-facing runs stays one export away per stage.
+
