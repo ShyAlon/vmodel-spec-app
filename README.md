@@ -2,6 +2,8 @@
 
 **[docs/PROCESS.md](docs/PROCESS.md) - the end-to-end pipeline map: what each stage consumes, produces, and hands forward.**
 
+**[docs/TODO.md](docs/TODO.md) - deferred work and the trigger that re-opens each item.**
+
 *You talk to it for an hour about your product idea; it hands your coding agent
 a spec rigorous enough that the agent stops guessing.*
 
@@ -95,3 +97,4 @@ To run against DeepSeek instead of Ollama: skip the `*_MODEL_*` exports and
 `model_config.py` in each module. Caveat from ADR-0003: local models are the
 dev loop - judge demo quality on the real provider, because the interview and
 the verdicts are the moat.
+
