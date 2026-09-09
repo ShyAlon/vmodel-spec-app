@@ -25,16 +25,27 @@ want "$ROOT/verification-loop/.env" '^VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE=olla
 want "$ROOT/spec-generator/.env" '^DEEPSEEK_API_KEY=sk-real-key-123$' "ollama: existing API key preserved"
 want "$ROOT/spec-generator/.env" '^# my settings$' "ollama: unrelated lines preserved"
 
-REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null || bad "deepseek run exits clean"
+# deepseek: key via env pass-through, written to every repo's .env
+OUT="$(DEEPSEEK_API_KEY=sk-test-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek)" || bad "deepseek run exits clean"
 want "$ROOT/spec-generator/.env" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-v4-flash$' "deepseek: spec srs switched"
 want "$ROOT/interview-engine/.env" '^INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-v4-flash$' "deepseek: interview distillation"
-want "$ROOT/spec-generator/.env" '^DEEPSEEK_API_KEY=sk-real-key-123$' "deepseek: existing key NOT clobbered"
-# a repo without a key line gets the empty placeholder
-want "$ROOT/interview-engine/.env" '^DEEPSEEK_API_KEY=$' "deepseek: empty key placeholder added"
-# idempotent: second run, no duplicate lines
-REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null
+want "$ROOT/spec-generator/.env" '^DEEPSEEK_API_KEY=sk-test-AAAA$' "deepseek: key written (replaced old one)"
+want "$ROOT/interview-engine/.env" '^DEEPSEEK_API_KEY=sk-test-AAAA$' "deepseek: key written where none existed"
+want "$ROOT/verification-loop/.env" '^DEEPSEEK_API_KEY=sk-test-AAAA$' "deepseek: key written to verification-loop"
+printf '%s' "$OUT" | grep -q 'sk-test-AAAA' && bad "key never echoed to stdout" || ok "key never echoed to stdout"
+# rerun with a NEW key replaces the line, never duplicates
+DEEPSEEK_API_KEY=sk-test-BBBB REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null
+want "$ROOT/spec-generator/.env" '^DEEPSEEK_API_KEY=sk-test-BBBB$' "deepseek rerun: key replaced"
+[ "$(grep -c '^DEEPSEEK_API_KEY=' "$ROOT/spec-generator/.env")" = "1" ] && ok "deepseek rerun: key not duplicated" || bad "deepseek rerun: key not duplicated"
 [ "$(grep -c '^SPEC_GENERATOR_MODEL_SRS=' "$ROOT/spec-generator/.env")" = "1" ] && ok "idempotent: no duplicate keys" || bad "idempotent: no duplicate keys"
-[ "$(grep -c '^DEEPSEEK_API_KEY=' "$ROOT/interview-engine/.env")" = "1" ] && ok "idempotent: placeholder not duplicated" || bad "idempotent: placeholder not duplicated"
+# hidden-prompt path: key on stdin, not echoed
+OUT="$(printf 'sk-test-CCCC\n' | REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek)" || bad "deepseek prompt path exits clean"
+want "$ROOT/interview-engine/.env" '^DEEPSEEK_API_KEY=sk-test-CCCC$' "prompt: key written from hidden prompt"
+printf '%s' "$OUT" | grep -q 'sk-test-CCCC' && bad "prompt: key never echoed" || ok "prompt: key never echoed"
+# no key anywhere (stdin EOF) fails loudly, writes nothing
+printf 'DEEPSEEK_API_KEY=keepme\n' > "$ROOT/verification-loop/.env"
+REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek </dev/null >/dev/null 2>&1 && bad "missing key rejected" || ok "missing key rejected"
+want "$ROOT/verification-loop/.env" '^DEEPSEEK_API_KEY=keepme$' "missing key: existing .env untouched"
 # unknown provider fails loudly
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" banana >/dev/null 2>&1 && bad "unknown provider rejected" || ok "unknown provider rejected"
 # missing repo is skipped, not fatal
