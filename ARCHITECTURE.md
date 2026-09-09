@@ -452,3 +452,21 @@ contracts 0.4.0):
 Contracts 0.4.0 is additive (new optional models/fields; the deprecated flat
 assumptions field still parses) - a MINOR bump per ADR-0002/0012. All module
 pins move together because the version gate requires major.minor equality.
+
+### ADR-0016: Coverage model - the interview aims at a checklist, ends on saturation
+
+**Decision.** The probing stage carries an explicit coverage model
+(`coverage.py`): 11 fixed elicitation areas (goal, users+stakeholder classes,
+flows, data, integrations, QUANTIFIED NFRs, failure modes, constraints, risks,
+done-criteria, glossary), each uncovered/thin/covered/skipped in session
+state. The interviewer self-reports coverage in a structured JSON turn
+(option a: one call per turn, no latency growth) with the
+concrete-answers-only closure rule (numbers for NFRs, named systems for
+integrations); parse failure degrades to a plain question with coverage
+unchanged. Founder control is deterministic: "skip" marks the current target
+skipped (never re-asked), "enough" ends without burning a call. The interview
+ends on SATURATION (complete=true when everything is covered/skipped), not
+turn drift. Per-turn progress line on the ProgressEvent stream; the approval
+gate renders the honest coverage map (covered / thin / skipped / not
+covered). Glossary is contracts 0.5.0 (additive): IntentModel.glossary pins
+the founder's terms to founder meanings.
