@@ -1,8 +1,21 @@
 # ADR-0019 (PROPOSED): Human review gates between generation stages, ecosystem capture in the interview, retrieval-grounded library selection (deferred)
 
-Status: **PROPOSED - for founder review, not yet implemented.**
+Status: **ACCEPTED (2026-09-09) with the founder's decisions - implemented.**
 Date: 2026-09-09
-Owner call pending: Shy.
+Owner call: Shy, verbatim: "We can skip the gate after needs, gates should be
+opt-in, edit n JSON, Eco system should be open but verified, cloud should be
+mentioned but not forced."
+
+Decisions applied:
+1. G1 (needs gate) is OUT - gates only after the SRS and the architecture.
+2. Gates are OPT-IN: `python -m spec_generator.cli ... --review`. Default runs are ungated.
+3. Edit surface: raw JSON, contract-validated on save (invalid edits reopen the editor).
+4. Ecosystem question is OPEN-worded ("any technology constraints - language/ecosystem,
+   cloud affinity?"), and every captured preference is VERIFIED mechanically:
+   source_turns required (ungrounded = dropped, same rule as assumptions) and
+   unrecognized ecosystem names kept but warned at the approval gate.
+5. Cloud is captured as a preference (strength preferred); it binds ONLY when the
+   founder explicitly mandates it - never forced.
 
 Two founder observations drive this:
 
@@ -152,25 +165,14 @@ API.
 
 ## Open questions for Shy
 
-1. **Gate set**: G1/G2/G3 all three, or is G1 (needs) redundant with the
-   interview's intent-model approval? (The intent gate already covers the
-   raw material needs come from.)
-2. **Default posture**: gates on by default with `--auto` to skip - or off by
-   default with `--review` to enable? (Proposal: on by default; the demo IS
-   the review.)
-3. **Edit surface**: is raw JSON in `$EDITOR` acceptable for the demo, or do
-   we need a friendlier markdown-edit flow (higher build cost, lossy
-   round-trip)?
+1. **Gate set**: DECIDED - G1 skipped, gates after SRS + architecture only.
+2. **Default posture**: DECIDED - opt-in `--review`.
+3. **Edit surface**: DECIDED - raw JSON in $EDITOR, contract-validated.
 4. **Feedback blast radius**: when G2 feedback re-runs the SRS, downstream
    stages re-derive automatically (checkpoint-invalidated). Acceptable, or
    should feedback be scoped tighter?
-5. **Ecosystem question wording**: asked as open ("any technology
-   constraints?") or explicit ("python, node, or agnostic?")? Open fits the
-   interview's adaptive style; explicit guarantees the demo answer.
-6. **Cloud as constraint vs decision**: is cloud affinity a founder
-   constraint (recorded, binding) or a discussion point the architecture
-   stage resolves with the founder at G3? Current proposal records it as a
-   preference with strength, binding only at "required".
+5. **Ecosystem question wording**: DECIDED - open-worded, with mechanical verification of what gets captured.
+6. **Cloud as constraint vs decision**: DECIDED - mentioned, recorded as preferred, never forced; binding only on explicit mandate.
 7. **Retrieval trigger**: what evidence should open Part 3 - first observed
    stale-library miss, or a scheduled phase after the demo?
 
