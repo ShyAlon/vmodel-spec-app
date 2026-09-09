@@ -503,8 +503,8 @@ also the artifact a prospect recognizes.
 **Decision.** Every LLM stage in every module (interview-engine probing /
 distillation / phrasing / scope_tiebreak, spec-generator needs / srs /
 architecture / items / tests / review, verification-loop residue_judge)
-defaults to local Ollama (`qwen2.5-coder:7b`; the 14b upgrade is one env
-block). Remote providers (DeepSeek, OpenAI, Anthropic) are OPT-IN per stage
+defaults to local Ollama (`qwen2.5-coder:14b` - his standing default;
+`qwen2.5-coder:7b` is the documented lighter fallback). Remote providers (DeepSeek, OpenAI, Anthropic) are OPT-IN per stage
 via the existing `<MODULE>_MODEL_<STAGE>` env overrides. This reverses the
 original DeepSeek-first default.
 
