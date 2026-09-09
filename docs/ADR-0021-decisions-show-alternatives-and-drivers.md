@@ -1,12 +1,25 @@
-# ADR-0021 (PROPOSED): Architecture decisions show their alternatives and their driver - no arbitrary stack picks
+# ADR-0021 (ACCEPTED): Architecture decisions show their alternatives and their driver - no arbitrary stack picks
 
-Status: **PROPOSED (2026-09-09) - awaiting founder decision.**
+Status: **ACCEPTED (2026-09-09) with the founder's decisions - implemented.**
 Date: 2026-09-09
 Owner call: Shy, verbatim: "When selecting a stack, I think we need to show
 the leading options and explain why the one chosen was chosen (why React and
 not Angular?). It can be as simple as a restriction by the user, the most
 common solution, most mature ecosystem, etc. But we need to provide
 something so it won't be arbitrary."
+
+Decisions applied (Shy, verbatim): "The five drivers seem like an excellent
+start. Let's enforce it by contract and do the migration sooner rather than
+later. No floor. If no options make sense - no options is fine. We don't
+need to trace stack entries to ADRs for now."
+1. Driver taxonomy: the five as drafted - closed enum.
+2. Enforcement: CONTRACT-REQUIRED, migration shipped with the bump. (Rides
+   MINOR 0.7.0 -> 0.8.0 per the standing doctrine: required-field additions
+   may ride MINOR because consumers enforce contract_version equality on
+   minor before reading - wrong-minor payloads fail loudly, never silently.)
+3. Options floor: NONE - zero options is fine (this also moots the proposed
+   founder_constraint exemption; the citation cross-check stays).
+4. Stack-entry-to-ADR traceability: NOT now.
 
 ## Context
 
@@ -28,9 +41,10 @@ The architecture stage names a stack and records ADRs (`decision`,
 
 ### Contract impact - vmodel-contracts 0.7.0 -> 0.8.0 (MINOR)
 
-Additive optional on `ArchitectureDecision`; existing payloads keep parsing
-and `vmodel_contracts.migrate` re-stamps them (ADR-0002: all four module
-pins move together, one tag per bump):
+Required-present on `ArchitectureDecision` (driver nullable only for legacy
+migration); `vmodel_contracts.migrate` synthesizes the honest legacy form
+(driver null, options empty, `rejected` carried) and re-stamps (ADR-0002:
+all four module pins move together, one tag per bump):
 
 ```
 driver: Literal["founder_constraint", "ecosystem_maturity", "community_adoption",
@@ -43,14 +57,16 @@ rejected: list[str]   # DEPRECATED 0.8.0 - kept so 0.7.x payloads parse; new pro
                       # assumptions -> assumption_items, out_of_scope -> scope_exclusions.
 ```
 
-The contract keeps both fields OPTIONAL (backward compatibility); the
-REQUIREMENT lives in the architecture-stage validator, mechanically:
+Enforcement is two-layer, mechanically:
 
-- Every NEW decision carries a `driver` from the closed enum.
-- Unless `driver == "founder_constraint"`, at least one `ConsideredOption`
-  with a non-empty reason is required. Under a genuine founder mandate zero
-  alternatives are allowed - inventing strawman alternatives to fill the
-  list is its own dishonesty.
+- The contract REQUIRES both fields present on every decision (founder
+  call: enforce by contract). `driver` is nullable at the contract level
+  ONLY so pre-0.8.0 artifacts migrate honestly (null = no retroactive
+  driver); the stage validator requires a real enum value on every NEW
+  decision.
+- NO options floor (founder call): `options_considered` may be empty -
+  under a genuine mandate, inventing strawman alternatives is its own
+  dishonesty.
 - `driver == "founder_constraint"` must cite a `TechPreference` that EXISTS
   in the intent model (the stage validator has it in scope - a cross-check,
   not a prompt hope). This lands ADR-0019's "ADRs record the constraint as
@@ -107,26 +123,15 @@ in ADR-0019.
   drivers/options fails stage validation and re-asks (same retry path as
   any contract failure), so a bare stack pick can no longer reach the gate.
 
-## Open questions for Shy
+## Open questions for Shy - all DECIDED (2026-09-09)
 
-1. **Driver taxonomy**: founder_constraint / ecosystem_maturity /
-   community_adoption / team_fit / simplicity - the right five? Candidate
-   additions: "cost" (the zero-cost doctrine drives real choices in this
-   very project), "performance". And: closed enum, or free-text with the
-   five as guidance?
-2. **Enforcement layer**: contract-optional + stage-required (proposed -
-   preserves compat, MINOR bump), or contract-required (MAJOR bump,
-   migration synthesizes empty values for old payloads)?
-3. **Options floor**: >=1 rejected option per decision except under
-   founder_constraint (proposed) - or stricter (>=2)?
-4. **Stack traceability**: should the validator also require every `stack`
-   dict entry to trace to a decision (no un-ADR'd stack picks), or is that
-   over-fitting?
+1. **Driver taxonomy**: DECIDED - the five as drafted, closed enum.
+2. **Enforcement layer**: DECIDED - contract-required; migration shipped
+   with the bump (synthesizes driver null + empty options for pre-0.8.0
+   artifacts). Rides MINOR per the standing version doctrine.
+3. **Options floor**: DECIDED - none. "If no options make sense - no
+   options is fine."
+4. **Stack traceability**: DECIDED - not now.
 
-## Decision points needed before implementation
-
-- Approve/adjust the `ConsideredOption` shape, the driver enum, and the
-  0.8.0 minor bump.
-- Pick the enforcement layer (Q2) and the options floor (Q3).
-- Confirm retrieval stays deferred - drivers remain unverified model
-  judgment until ADR-0019 Part 3.
+Retrieval stays deferred (TODO.md item 1): drivers remain unverified model
+judgment, labeled as such at the gate, until ADR-0019 Part 3 lands.
