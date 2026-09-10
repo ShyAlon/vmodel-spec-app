@@ -120,3 +120,38 @@ compatible ones. The full rationale is in ARCHITECTURE.md (ADR-0002 contracts,
 ADR-0011 phased distillation, ADR-0015 mechanical guards, ADR-0017 SRS
 redesign, ADR-0018 local-first).
 
+
+## Batch generation after approved interviews
+
+Run each interview normally and approve its intent model. Queue completed
+sessions one at a time; the queue survives across days:
+
+```bash
+cd vmodel-spec-app
+python scripts/batch-specs.py add ../interview-engine/out/<session>/intent_model.json
+# optional variance run of one approved interview:
+python scripts/batch-specs.py add ../interview-engine/out/<session>/intent_model.json --repeat 3 --name booking
+python scripts/batch-specs.py run
+```
+
+The runner is deliberately sequential for local Ollama. It prints an honest
+2.5-3 hour estimate per run and the total before starting. Each queue entry
+has its own `spec-generator/artifacts-YYYY-MM-DD_HH-MM-SS/` directory and the
+manifest records that mapping before generation starts. If interrupted, rerun `python scripts/batch-specs.py run`; the running
+entry reuses its directory and spec-generator resumes from its checkpoint.
+A real nonzero failure stops the queue for diagnosis. After fixing the cause,
+run `python scripts/batch-specs.py retry <run-id>` and then `run`; retry keeps
+the same artifacts directory and checkpoint.
+
+`batch-report.json` and `batch-report.md` are refreshed after every completed
+run. They summarize contract-shaped artifact counts, requirement/spec and
+criterion/test gaps, canonical test-definition compliance, runner mix,
+tokens/cost/time, and content hashes. Repeated entries from the same interview
+also get a variance summary. Rebuild without generating via:
+
+```bash
+python scripts/batch-specs.py report
+```
+
+The queue starts only from founder-approved `intent_model.json` files. Fully
+automated brief import is intentionally not part of this half-automated mode.

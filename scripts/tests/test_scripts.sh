@@ -120,5 +120,13 @@ want "$SHARED" '^VMODEL_LLM_MAX_CALLS=50$' "guardrails: user-set call budget pre
 want "$SHARED" '^VMODEL_LLM_MAX_TOKENS=4096$' "guardrails: user-set max-tokens preserved"
 want "$SHARED" '^VMODEL_LLM_CALL_TIMEOUT_S=600$' "guardrails: earlier default still there"
 
+# batch-specs: Python unit coverage for queue ids, repeat outputs, evaluator.
+# Use python3: this check runs after the test shim prepended a fake `python`.
+if python3 "$SCRIPTS/tests/test_batch_specs.py" >/dev/null; then
+  ok "batch specs queue + evaluator"
+else
+  bad "batch specs queue + evaluator"
+fi
+
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
