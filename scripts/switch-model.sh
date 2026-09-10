@@ -2,10 +2,11 @@
 # switch-model.sh - point every process at one LLM via ONE shared config file.
 #
 #   scripts/switch-model.sh ollama     # local, qwen2.5-coder:14b, $0 (the standing default)
-#   scripts/switch-model.sh deepseek   # DeepSeek V4 Flash (deepseek-v4-flash), needs DEEPSEEK_API_KEY
+#   scripts/switch-model.sh deepseek   # DeepSeek V4.1 Flash (deepseek-flash), needs DEEPSEEK_API_KEY
 #   scripts/switch-model.sh openai     # OpenAI gpt-5.4-mini by default, needs OPENAI_API_KEY
 #                                      # override the model without a code change:
 #                                      #   OPENAI_MODEL=gpt-5.4 scripts/switch-model.sh openai
+#                                      #   DEEPSEEK_MODEL=... scripts/switch-model.sh deepseek
 #
 # Writes <require-root>/.env - the SHARED file every process reads first
 # (model_config._dotenv: shared file, then repo-local .env as an override
@@ -37,7 +38,7 @@ die() { echo "error: $*" >&2; exit 1; }
 KEY_VAR=""
 case "$1" in
   ollama)   MODEL="ollama:qwen2.5-coder:14b" ;;
-  deepseek) MODEL="deepseek:deepseek-v4-flash"; KEY_VAR="DEEPSEEK_API_KEY" ;;
+  deepseek) MODEL="deepseek:${DEEPSEEK_MODEL:-deepseek-flash}"; KEY_VAR="DEEPSEEK_API_KEY" ;;
   openai)   MODEL="openai:${OPENAI_MODEL:-gpt-5.4-mini}"; KEY_VAR="OPENAI_API_KEY" ;;
   *)        die "unknown provider '$1' (want: ollama|deepseek|openai)" ;;
 esac

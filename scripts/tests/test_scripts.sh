@@ -30,8 +30,13 @@ want "$ROOT/spec-generator/.env" '^# my settings$' "migration: unrelated repo-lo
 
 # deepseek: key via env pass-through, written to the shared file
 OUT="$(DEEPSEEK_API_KEY=sk-test-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek)" || bad "deepseek run exits clean"
-want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-v4-flash$' "deepseek: spec srs switched"
-want "$SHARED" '^INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-v4-flash$' "deepseek: interview distillation"
+want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-flash$' "deepseek: spec srs switched"
+want "$SHARED" '^INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-flash$' "deepseek: interview distillation"
+# DeepSeek override without a code change
+DEEPSEEK_MODEL=deepseek-v4-pro DEEPSEEK_API_KEY=sk-test-PRO REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null
+want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-v4-pro$' "deepseek: DEEPSEEK_MODEL override respected"
+# restore default for the remaining idempotency/key tests
+DEEPSEEK_API_KEY=sk-test-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null
 want "$SHARED" '^DEEPSEEK_API_KEY=sk-test-AAAA$' "deepseek: key written to shared (replaced migrated one)"
 printf '%s' "$OUT" | grep -q 'sk-test-AAAA' && bad "key never echoed to stdout" || ok "key never echoed to stdout"
 # rerun with a NEW key replaces the line, never duplicates
