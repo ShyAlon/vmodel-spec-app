@@ -37,7 +37,7 @@ die() { echo "error: $*" >&2; exit 1; }
 [ $# -eq 1 ] || die "usage: $0 ollama|deepseek|openai   (keys via env pass-through or a hidden prompt)"
 KEY_VAR=""
 case "$1" in
-  ollama)   MODEL="ollama:qwen2.5-coder:14b" ;;
+  ollama)   MODEL="ollama:phi4" ;;
   deepseek) MODEL="deepseek:${DEEPSEEK_MODEL:-deepseek-flash}"; KEY_VAR="DEEPSEEK_API_KEY" ;;
   openai)   MODEL="openai:${OPENAI_MODEL:-gpt-5.4-mini}"; KEY_VAR="OPENAI_API_KEY" ;;
   *)        die "unknown provider '$1' (want: ollama|deepseek|openai)" ;;
