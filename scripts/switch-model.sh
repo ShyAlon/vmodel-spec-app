@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# switch-model.sh - point every process's repo-local .env at one LLM.
+# switch-model.sh - point every process at one LLM via ONE shared config file.
 #
 #   scripts/switch-model.sh ollama     # local, qwen2.5-coder:14b, $0 (the standing default)
 #   scripts/switch-model.sh deepseek   # DeepSeek V4 Flash (deepseek-v4-flash), needs DEEPSEEK_API_KEY
@@ -7,18 +7,23 @@
 #                                      # override the model without a code change:
 #                                      #   OPENAI_MODEL=gpt-5.4 scripts/switch-model.sh openai
 #
-# Writes <repo>/.env for every process repo that exists (interview-engine,
-# spec-generator, verification-loop). The processes load their .env at
-# startup (model_config._env); real environment variables always win
-# over the file, and repo DEFAULTS are untouched - this is a switcher, not a
-# default change.
+# Writes <require-root>/.env - the SHARED file every process reads first
+# (model_config._dotenv: shared file, then repo-local .env as an override
+# layer, real environment variables always win). Repo DEFAULTS in code are
+# untouched - this is a switcher, not a default change.
+#
+# Migration: managed keys (MODEL_* routing, API keys) found in a repo-local
+# .env are MOVED to the shared file (values preserved) and removed from the
+# repo file, so stale per-repo overrides never linger. Unrelated lines in
+# repo .env files are left alone.
 #
 # API keys: hand them over without landing in shell history or a process
 # list - either export first:
 #   OPENAI_API_KEY=sk-... scripts/switch-model.sh openai
-# or just run the script and it prompts with hidden input. Keys are written
-# into each repo's .env (reruns replace, never duplicate), never printed
-# back, and .env is gitignored in every process repo.
+# or just run the script and it prompts with hidden input. Keys live in the
+# shared .env (reruns replace, never duplicate), never printed back. The
+# require root is not a git repo, so the shared .env is untracked by
+# construction; repo .env files stay gitignored for the override layer.
 set -euo pipefail
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -38,10 +43,17 @@ if sed --version >/dev/null 2>&1; then SED_I=(sed -i -e); else SED_I=(sed -i '' 
 # repos live side by side under the require/ dir; override with REQUIRE_ROOT.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REQUIRE_ROOT="${REQUIRE_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+SHARED="$REQUIRE_ROOT/.env"
+
+MODEL_KEYS="INTERVIEW_ENGINE_MODEL_PROBING INTERVIEW_ENGINE_MODEL_DISTILLATION \
+INTERVIEW_ENGINE_MODEL_PHRASING INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK \
+SPEC_GENERATOR_MODEL_NEEDS SPEC_GENERATOR_MODEL_SRS SPEC_GENERATOR_MODEL_ARCHITECTURE \
+SPEC_GENERATOR_MODEL_ITEMS SPEC_GENERATOR_MODEL_TESTS SPEC_GENERATOR_MODEL_REVIEW \
+VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE"
+KEY_VARS="DEEPSEEK_API_KEY OPENAI_API_KEY"
 
 # set_env FILE KEY VALUE - update the KEY= line in place or append it; every
-# other line (comments, unrelated settings, the OTHER provider's key) is
-# preserved. Reruns replace.
+# other line is preserved. Reruns replace.
 set_env() {
   local file="$1" key="$2" value="$3"
   touch "$file"
@@ -52,22 +64,29 @@ set_env() {
   fi
 }
 
-switch_repo() {
-  local repo="$1"; shift
-  local dir="$REQUIRE_ROOT/$repo"
-  if [ ! -d "$dir" ]; then
-    echo "  - $repo: not found at $dir (skipped)"
-    return
-  fi
-  local envfile="$dir/.env"
-  for key in "$@"; do
-    set_env "$envfile" "$key" "$MODEL"
+# migrate_repo_env REPO - move managed keys from <repo>/.env into the shared
+# file (values preserved, shared not clobbered), then strip them locally.
+migrate_repo_env() {
+  local f="$REQUIRE_ROOT/$1/.env"
+  [ -f "$f" ] || return 0
+  local k v moved=""
+  for k in $MODEL_KEYS $KEY_VARS; do
+    if grep -qE "^${k}=." "$f"; then        # non-empty value worth preserving
+      v="$(grep -E "^${k}=" "$f" | head -1 | cut -d= -f2-)"
+      grep -qE "^${k}=." "$SHARED" 2>/dev/null || { touch "$SHARED"; printf '%s=%s\n' "$k" "$v" >> "$SHARED"; }
+      moved="$moved $k"
+    elif grep -qE "^${k}=" "$f"; then
+      moved="$moved $k"
+    fi
+    grep -qE "^${k}=" "$f" && "${SED_I[@]}" "/^${k}=/d" "$f"
   done
-  echo "  - $repo: $(basename "$envfile") -> $MODEL"
+  [ -n "$moved" ] && echo "  - $1: moved managed keys to shared .env:$(echo $moved | sed 's/ /, /g')"
+  return 0
 }
 
 # Resolve the provider's API key BEFORE touching files: env pass-through
-# first, then a hidden prompt. The value is only ever written to .env files.
+# first, then a hidden prompt. The value is only ever written to the shared
+# .env file.
 API_KEY=""
 if [ -n "$KEY_VAR" ]; then
   eval "API_KEY=\"\${$KEY_VAR:-}\""
@@ -77,21 +96,21 @@ if [ -n "$KEY_VAR" ]; then
   [ -n "$API_KEY" ] || die "no key given - export $KEY_VAR or answer the prompt"
 fi
 
-echo "Switching all processes to $MODEL"
-switch_repo interview-engine \
-  INTERVIEW_ENGINE_MODEL_PROBING INTERVIEW_ENGINE_MODEL_DISTILLATION \
-  INTERVIEW_ENGINE_MODEL_PHRASING INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK
-switch_repo spec-generator \
-  SPEC_GENERATOR_MODEL_NEEDS SPEC_GENERATOR_MODEL_SRS SPEC_GENERATOR_MODEL_ARCHITECTURE \
-  SPEC_GENERATOR_MODEL_ITEMS SPEC_GENERATOR_MODEL_TESTS SPEC_GENERATOR_MODEL_REVIEW
-switch_repo verification-loop VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE
-
+echo "Switching all processes to $MODEL (shared config: $SHARED)"
+for repo in interview-engine spec-generator verification-loop; do
+  if [ ! -d "$REQUIRE_ROOT/$repo" ]; then
+    echo "  - $repo: not found at $REQUIRE_ROOT/$repo (skipped)"
+    continue
+  fi
+  migrate_repo_env "$repo"
+done
+for k in $MODEL_KEYS; do
+  set_env "$SHARED" "$k" "$MODEL"
+done
 if [ -n "$KEY_VAR" ]; then
-  for repo in interview-engine spec-generator verification-loop; do
-    [ -d "$REQUIRE_ROOT/$repo" ] && set_env "$REQUIRE_ROOT/$repo/.env" "$KEY_VAR" "$API_KEY"
-  done
+  set_env "$SHARED" "$KEY_VAR" "$API_KEY"
   API_KEY=""  # drop it from the shell as soon as it is on disk
   echo
-  echo "API key written into each repo's .env (gitignored, never leaves your machine except to the provider)."
+  echo "API key written into $SHARED (untracked by any repo, never leaves your machine except to the provider)."
 fi
-echo "Done. Processes read their .env on next start; exported shell variables still override it."
+echo "Done. Processes read the shared .env on next start; a repo-local .env overrides it, and exported shell variables override both."
