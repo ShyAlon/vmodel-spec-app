@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Founder-facing batch workflow. Bash owns the interactive UX; the Python
 # helper owns durable JSON state and deterministic report calculations.
+# `zsh scripts/batch-specs.sh` and `sh scripts/batch-specs.sh` override the
+# shebang. Recover automatically instead of failing later on Bash syntax.
+if [ -z "${BASH_VERSION:-}" ]; then
+  if command -v bash >/dev/null 2>&1; then
+    exec bash "$0" "$@"
+  fi
+  echo "error: this script needs Bash; run: bash scripts/batch-specs.sh $*" >&2
+  exit 2
+fi
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +36,26 @@ The durable queue is batch-specs.json in vmodel-spec-app unless --manifest is
 passed before the subcommand.
 EOF
 }
+
+# Bare invocation is ambiguous when resumable queue work already exists. Prefer
+# the queue by default, but let the founder explicitly choose a fresh interview.
+if [ "$#" -eq 0 ]; then
+  pending=$(cd "$SCRIPT_DIR/.." && "$PYTHON_BIN" "$DRIVER" pending-count)
+  if [ "$pending" -gt 0 ]; then
+    echo "$pending queued/running spec run(s) already exist."
+    printf 'Run the existing queue now? [Y/n] '
+    IFS= read -r queue_answer || queue_answer="y"
+    queue_answer_lc=$(printf '%s' "$queue_answer" | tr '[:upper:]' '[:lower:]')
+    case "$queue_answer_lc" in
+      ""|y|yes)
+        cd "$SCRIPT_DIR/.."
+        exec "$PYTHON_BIN" "$DRIVER" run
+        ;;
+      n|no) ;;
+      *) fail "please answer y or n" ;;
+    esac
+  fi
+fi
 
 # Manual queue lifecycle stays available behind the Bash entry point.
 case "${1:-interview}" in

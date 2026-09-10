@@ -275,6 +275,7 @@ def main() -> int:
     retry_p = sub.add_parser("retry", help="requeue one diagnosed failed run in its existing directory")
     retry_p.add_argument("run_id")
     sub.add_parser("report", help="rebuild deterministic reports from completed runs")
+    sub.add_parser("pending-count", help=argparse.SUPPRESS)
     args = ap.parse_args()
     manifest = args.manifest.expanduser().resolve()
     try:
@@ -286,6 +287,10 @@ def main() -> int:
             return 0
         if args.command == "run":
             return run_queue(manifest, _root(), args.limit)
+        if args.command == "pending-count":
+            data = _load(manifest)
+            print(sum(r.get("status") in ("queued", "running") for r in data["runs"]))
+            return 0
         if args.command == "retry":
             run = retry(manifest, args.run_id)
             print(f"Requeued {run['id']} in existing directory spec-generator/{run['artifacts']}")

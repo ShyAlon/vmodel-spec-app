@@ -53,6 +53,15 @@ class BatchSpecsTests(unittest.TestCase):
             self.assertIn("visible out", log.read_text())
             self.assertIn("visible err", log.read_text())
 
+    def test_pending_count_distinguishes_runnable_states(self):
+        with tempfile.TemporaryDirectory() as d:
+            manifest = Path(d) / "queue.json"
+            batch._atomic_json(manifest, {"version": 1, "runs": [
+                {"status": "queued"}, {"status": "running"},
+                {"status": "failed"}, {"status": "completed"}]})
+            data = batch._load(manifest)
+            self.assertEqual(sum(r.get("status") in ("queued", "running") for r in data["runs"]), 2)
+
     def test_failed_run_requires_explicit_retry_and_keeps_directory(self):
         with tempfile.TemporaryDirectory() as d:
             manifest = Path(d) / "queue.json"

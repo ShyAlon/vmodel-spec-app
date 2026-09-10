@@ -31,15 +31,19 @@ next to it as `batch-report.json` and `batch-report.md`.
 
 ### 1. Run interviews, then generate every queued spec
 
-This is the main workflow. Conduct and approve each interview normally. The
+This is the main workflow. If queued or interrupted spec runs already exist, bare invocation first asks whether to run that queue (the default) or start a fresh interview. Otherwise it starts the interview directly. Conduct and approve each interview normally. The
 script queues it, then asks `Create another interview? [Y/n]`. Press Enter to
 start another. Answer `n`, `done`, or `enough` to stop interviewing and begin
 sequential spec generation immediately.
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-scripts/batch-specs.sh
+bash scripts/batch-specs.sh
 ```
+
+The script has a Bash shebang and also recovers if it is accidentally invoked as
+`zsh scripts/batch-specs.sh` or `sh scripts/batch-specs.sh` by re-executing itself
+under Bash. The explicit `bash` form above is the clearest macOS invocation.
 
 To queue an interview you already completed, use the manual subcommand:
 
