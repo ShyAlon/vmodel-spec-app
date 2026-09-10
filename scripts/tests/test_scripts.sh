@@ -125,9 +125,15 @@ want "$SHARED" '^VMODEL_LLM_MAX_CALLS=50$' "guardrails: user-set call budget pre
 want "$SHARED" '^VMODEL_LLM_MAX_TOKENS=4096$' "guardrails: user-set max-tokens preserved"
 want "$SHARED" '^VMODEL_LLM_CALL_TIMEOUT_S=600$' "guardrails: earlier default still there"
 
+if bash "$SCRIPTS/tests/test_batch_specs_sh.sh"; then
+  ok "bash batch entrypoint loops interviews and delegates lifecycle"
+else
+  bad "bash batch entrypoint"
+fi
+
 # shared scripts runbook: every batch lifecycle command is documented
-for cmd in " add " " run" " report" " retry "; do
-  grep -q "batch-specs.py.*$cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"
+for cmd in add run report retry; do
+  grep -q "batch-specs.sh $cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"
 done
 ok "scripts README documents batch lifecycle"
 

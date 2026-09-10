@@ -6,7 +6,10 @@ workspace.
 
 ## Batch spec generation
 
-`batch-specs.py` takes over after you finish and approve interviews. You may
+`batch-specs.sh` can run the complete founder-driven batch flow: it opens the
+native interactive interview repeatedly, queues each approved session, and
+asks whether you want another. When you answer no (or `done` / `enough`), it
+starts sequential spec generation automatically. You may
 queue sessions over several days, then process them sequentially. Local Ollama
 runs are intentionally never parallel: with phi4, plan on roughly 2.5-3 hours
 per full spec. The runner prints the run count and total estimate before it
@@ -18,22 +21,34 @@ Each queued run gets a dedicated directory under spec-generator:
 ~/development/require/spec-generator/artifacts-YYYY-MM-DD_HH-MM-SS/
 ```
 
+The entry point is Bash, so interactive stdin/stdout pass through unchanged.
+It calls the adjacent Python helper for JSON state and report calculations;
+rewriting those data operations in Bash would make them less safe and testable.
+
 The queue and its state live in
 `~/development/require/vmodel-spec-app/batch-specs.json`. Reports are written
 next to it as `batch-report.json` and `batch-report.md`.
 
-### 1. Queue an approved interview
+### 1. Run interviews, then generate every queued spec
 
-Replace `<session>` with the session directory printed by interview-engine.
-The intent model must already have passed your interactive approval step.
+This is the main workflow. Conduct and approve each interview normally. The
+script queues it, then asks `Create another interview? [Y/n]`. Press Enter to
+start another. Answer `n`, `done`, or `enough` to stop interviewing and begin
+sequential spec generation immediately.
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py add ../interview-engine/out/<session>/intent_model.json
+scripts/batch-specs.sh
 ```
 
-Run that command after each interview. Existing queue entries stay in the
-manifest, so you can build the queue over time.
+To queue an interview you already completed, use the manual subcommand:
+
+```bash
+cd ~/development/require/vmodel-spec-app
+scripts/batch-specs.sh add ../interview-engine/out/<session>/intent_model.json
+```
+
+Existing queue entries stay in the manifest, so you can add sessions over time.
 
 ### 2. Optional: repeat one interview to measure variance
 
@@ -42,7 +57,7 @@ bundle and artifacts directory each time.
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py add ../interview-engine/out/<session>/intent_model.json --repeat 3 --name booking
+scripts/batch-specs.sh add ../interview-engine/out/<session>/intent_model.json --repeat 3 --name booking
 ```
 
 Use a unique `--name` if that session was already queued.
@@ -55,14 +70,14 @@ and refreshes both batch reports after every completed run.
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py run
+scripts/batch-specs.sh run
 ```
 
 To run only the next queued entry:
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py run --limit 1
+scripts/batch-specs.sh run --limit 1
 ```
 
 If the process is interrupted, run the same command again. A run left in the
@@ -76,8 +91,8 @@ then use the run id printed in the failure message:
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py retry <run-id>
-python scripts/batch-specs.py run
+scripts/batch-specs.sh retry <run-id>
+scripts/batch-specs.sh run
 ```
 
 Retry keeps the same artifacts directory and checkpoint. It does not silently
@@ -87,7 +102,7 @@ start over.
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py report
+scripts/batch-specs.sh report
 ```
 
 The reports include artifact counts; requirement-to-spec and
@@ -103,9 +118,9 @@ separate queues, pass the same explicit manifest to every command:
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-python scripts/batch-specs.py --manifest batches/checkout.json add ../interview-engine/out/<session>/intent_model.json
-python scripts/batch-specs.py --manifest batches/checkout.json run
-python scripts/batch-specs.py --manifest batches/checkout.json report
+scripts/batch-specs.sh --manifest batches/checkout.json add ../interview-engine/out/<session>/intent_model.json
+scripts/batch-specs.sh --manifest batches/checkout.json run
+scripts/batch-specs.sh --manifest batches/checkout.json report
 ```
 
 ## Full interactive flow
