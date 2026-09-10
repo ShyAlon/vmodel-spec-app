@@ -46,6 +46,25 @@ printf '%s' "$OUT" | grep -q 'sk-test-CCCC' && bad "prompt: key never echoed" ||
 printf 'DEEPSEEK_API_KEY=keepme\n' > "$ROOT/verification-loop/.env"
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek </dev/null >/dev/null 2>&1 && bad "missing key rejected" || ok "missing key rejected"
 want "$ROOT/verification-loop/.env" '^DEEPSEEK_API_KEY=keepme$' "missing key: existing .env untouched"
+# openai: key via env pass-through, default model gpt-5.4-mini
+OUT="$(OPENAI_API_KEY=sk-oai-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai)" || bad "openai run exits clean"
+want "$ROOT/spec-generator/.env" '^SPEC_GENERATOR_MODEL_SRS=openai:gpt-5\.4-mini$' "openai: spec srs switched to default model"
+want "$ROOT/interview-engine/.env" '^INTERVIEW_ENGINE_MODEL_PROBING=openai:gpt-5\.4-mini$' "openai: interview probing"
+want "$ROOT/verification-loop/.env" '^VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE=openai:gpt-5\.4-mini$' "openai: verification judge"
+want "$ROOT/interview-engine/.env" '^OPENAI_API_KEY=sk-oai-AAAA$' "openai: key written"
+printf '%s' "$OUT" | grep -q 'sk-oai-AAAA' && bad "openai: key never echoed" || ok "openai: key never echoed"
+want "$ROOT/interview-engine/.env" '^DEEPSEEK_API_KEY=sk-test-CCCC$' "openai: deepseek key preserved"
+# model override without a code change
+OPENAI_MODEL=gpt-5.4 OPENAI_API_KEY=sk-oai-BBBB REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai >/dev/null
+want "$ROOT/spec-generator/.env" '^SPEC_GENERATOR_MODEL_SRS=openai:gpt-5\.4$' "openai: OPENAI_MODEL override respected"
+want "$ROOT/spec-generator/.env" '^OPENAI_API_KEY=sk-oai-BBBB$' "openai rerun: key replaced"
+[ "$(grep -c '^OPENAI_API_KEY=' "$ROOT/spec-generator/.env")" = "1" ] && ok "openai rerun: key not duplicated" || bad "openai rerun: key not duplicated"
+# openai prompt path + empty rejection
+OUT="$(printf 'sk-oai-CCCC\n' | REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai)" || bad "openai prompt path exits clean"
+want "$ROOT/interview-engine/.env" '^OPENAI_API_KEY=sk-oai-CCCC$' "openai prompt: key written from hidden prompt"
+printf '%s' "$OUT" | grep -q 'sk-oai-CCCC' && bad "openai prompt: key never echoed" || ok "openai prompt: key never echoed"
+REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai </dev/null >/dev/null 2>&1 && bad "openai missing key rejected" || ok "openai missing key rejected"
+
 # unknown provider fails loudly
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" banana >/dev/null 2>&1 && bad "unknown provider rejected" || ok "unknown provider rejected"
 # missing repo is skipped, not fatal
