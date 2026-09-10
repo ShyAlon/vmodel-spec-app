@@ -22,3 +22,10 @@ grep -q 'batch-specs.py run' "$BATCH_TEST_LOG"
 : > "$BATCH_TEST_LOG"
 REQUIRE_ROOT="$ROOT" BATCH_SPECS_PYTHON="$TMP/python" "$ROOT/vmodel-spec-app/scripts/batch-specs.sh" report >/dev/null
 grep -q 'batch-specs.py report' "$BATCH_TEST_LOG"
+
+# Keep the founder-facing entry point compatible with macOS' Bash 3.2.
+# Reject the common Bash 4+ constructs that caused the original handoff crash.
+if grep -Eq '\\$\{[^}]+(,,|\^\^)|(^|[[:space:]])(declare|typeset)[[:space:]]+-A|(^|[[:space:]])(mapfile|readarray|coproc)([[:space:]]|$)|wait[[:space:]]+-n' "$SCRIPTS/batch-specs.sh"; then
+  echo 'batch-specs.sh uses a Bash 4+ construct' >&2
+  exit 1
+fi

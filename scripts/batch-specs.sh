@@ -84,7 +84,9 @@ while true; do
 
   printf 'Create another interview? [Y/n] '
   IFS= read -r answer || answer="n"
-  case "${answer,,}" in
+  # macOS ships Bash 3.2, which has no ${var,,} case conversion.
+  answer_lc=$(printf '%s' "$answer" | tr '[:upper:]' '[:lower:]')
+  case "$answer_lc" in
     ""|y|yes) ;;
     n|no|done|enough) break ;;
     *) echo "Please answer y or n."; continue ;;
