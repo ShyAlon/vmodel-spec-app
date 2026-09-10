@@ -65,8 +65,9 @@ Use a unique `--name` if that session was already queued.
 ### 3. Run the queue
 
 This processes queued entries one at a time and stops on the first real
-failure. It also captures `llm-calls.jsonl` inside each artifacts directory
-and refreshes both batch reports after every completed run.
+failure. It captures `llm-calls.jsonl` and a terminal mirror in `run.log` inside each
+artifacts directory, then refreshes both batch reports after every completed run.
+A failed run prints that durable log path, so diagnostics do not depend on terminal scrollback.
 
 ```bash
 cd ~/development/require/vmodel-spec-app

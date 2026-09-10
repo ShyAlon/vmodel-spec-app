@@ -36,6 +36,23 @@ class BatchSpecsTests(unittest.TestCase):
             self.assertTrue(result["test_definitions"]["canonical"])
             self.assertEqual(result["traceability"]["criteria_without_tests"], [])
 
+    def test_run_logged_tees_stdout_and_stderr_to_durable_log(self):
+        import contextlib
+        import io
+        import os
+        import sys
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d); log = root / "artifacts-x" / "run.log"
+            buf = io.StringIO()
+            command = [sys.executable, "-c", "import sys; print('visible out'); print('visible err', file=sys.stderr)"]
+            with contextlib.redirect_stdout(buf):
+                rc = batch._run_logged(command, root, dict(os.environ), log)
+            self.assertEqual(rc, 0)
+            self.assertIn("visible out", buf.getvalue())
+            self.assertIn("visible err", buf.getvalue())
+            self.assertIn("visible out", log.read_text())
+            self.assertIn("visible err", log.read_text())
+
     def test_failed_run_requires_explicit_retry_and_keeps_directory(self):
         with tempfile.TemporaryDirectory() as d:
             manifest = Path(d) / "queue.json"

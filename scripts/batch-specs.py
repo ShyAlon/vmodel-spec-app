@@ -207,6 +207,25 @@ def retry(manifest: Path, run_id: str) -> dict:
     return run
 
 
+def _run_logged(command: list[str], cwd: Path, env: dict, log_path: Path) -> int:
+    """Stream child output to the terminal and a durable per-run log."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a") as log:
+        stamp = dt.datetime.now().isoformat(timespec="seconds")
+        log.write(f"\n=== attempt started {stamp} ===\n")
+        log.flush()
+        proc = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, bufsize=1)
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            log.write(line)
+            log.flush()
+        proc.stdout.close()
+        return proc.wait()
+
+
 def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> int:
     data = _load(manifest)
     # A prior SIGINT/SIGTERM leaves the manifest at `running`; that is pending
@@ -226,8 +245,9 @@ def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> i
         print(f"[{pos}/{len(pending)}] {run['id']} -> {out} (estimate {HOURS_MIN}-{HOURS_MAX}h)", flush=True)
         env = dict(os.environ, VMODEL_LLM_LOG=str(out / "llm-calls.jsonl"))
         started = time.monotonic()
-        rc = subprocess.run([sys.executable, "-m", "spec_generator.cli", run["intent_model"],
-                             "-o", run["artifacts"]], cwd=sg, env=env).returncode
+        run_log = out / "run.log"
+        rc = _run_logged([sys.executable, "-m", "spec_generator.cli", run["intent_model"],
+                          "-o", run["artifacts"]], cwd=sg, env=env, log_path=run_log)
         run["wall_seconds"] = round(float(run.get("wall_seconds", 0)) + time.monotonic() - started, 3)
         run["status"] = "completed" if rc == 0 else "failed"
         run["finished_at"] = dt.datetime.now().isoformat(timespec="seconds")
@@ -236,7 +256,8 @@ def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> i
         write_report(manifest, data, require_root)
         if rc:
             failures += 1
-            print(f"Stopped: {run['id']} failed (exit {rc}). Fix it, then run the queue command again; it resumes this artifacts directory.", file=sys.stderr)
+            print(f"Stopped: {run['id']} failed (exit {rc}). Full output: {out / 'run.log'}. "
+                  "Fix it, then retry this run id; it resumes the same artifacts directory.", file=sys.stderr)
             break
     return 1 if failures else 0
 
