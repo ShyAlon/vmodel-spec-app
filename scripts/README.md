@@ -54,6 +54,24 @@ scripts/batch-specs.sh add ../interview-engine/out/<session>/intent_model.json
 
 Existing queue entries stay in the manifest, so you can add sessions over time.
 
+### Contract versions heal themselves
+
+`add` (and `run`, again right before each job starts) passes the intent model
+through the validating migrator (`python -m vmodel_contracts.migrate`). An
+intent from an older but compatible contract release is re-stamped to the
+installed version - validated against the current schema first, never blindly -
+and the old -> new version is recorded in `batch-specs.json` and in the run's
+`run.log`. An intent with real schema drift is refused untouched, with the
+migrator's field errors: re-run that interview instead. An intent NEWER than
+the installed contracts means this checkout is behind: pull and reinstall the
+repos, do not re-run the interview.
+
+`run` also starts with a repo-consistency preflight: interview-engine and
+spec-generator must pin the same vmodel-contracts release tag in their
+`pyproject.toml`. On a mismatch it names the repo that is behind and prints
+the exact `git pull && pip install -e ".[dev]"` fix, then stops before any
+queued hours are burned.
+
 ### 2. Optional: repeat one interview to measure variance
 
 A repeat uses the same approved intent model but generates a separate full

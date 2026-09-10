@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # switch-model.sh - point every process at one LLM via ONE shared config file.
 #
-#   scripts/switch-model.sh ollama     # local, qwen2.5-coder:14b, $0 (the standing default)
+#   scripts/switch-model.sh ollama     # local, phi4, $0 (the standing default)
 #   scripts/switch-model.sh deepseek   # DeepSeek V4.1 Flash (deepseek-flash), needs DEEPSEEK_API_KEY
 #   scripts/switch-model.sh openai     # OpenAI gpt-5.4-mini by default, needs OPENAI_API_KEY
 #                                      # override the model without a code change:

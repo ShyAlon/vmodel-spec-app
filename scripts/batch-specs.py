@@ -12,6 +12,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -21,6 +22,13 @@ from pathlib import Path
 VERSION = 1
 HOURS_MIN = 2.5
 HOURS_MAX = 3.0
+
+# The batch flow spans exactly these sibling repos: interview-engine produces
+# the intent model, spec-generator consumes it. Both pin a vmodel-contracts
+# release tag in pyproject.toml; the pins must agree or payloads cross a
+# contract boundary untyped.
+PARTICIPATING_REPOS = ("interview-engine", "spec-generator")
+PIN_RE = re.compile(r'vmodel-contracts\s*@\s*git\+https://github\.com/ShyAlon/vmodel-contracts\.git@([^\s",]+)')
 
 
 def _atomic_json(path: Path, data: dict) -> None:
@@ -65,6 +73,7 @@ def add(manifest: Path, intent_path: Path, repeat: int = 1, name: str | None = N
     session = payload.get("session_id")
     if not isinstance(session, str) or not session:
         raise ValueError(f"{intent_path}: not an intent model (session_id missing)")
+    migration = migrate_intent(intent_path)
     data = _load(manifest)
     added = []
     base = name or session
@@ -78,6 +87,7 @@ def add(manifest: Path, intent_path: Path, repeat: int = 1, name: str | None = N
             "artifacts": artifacts,
             "status": "queued",
             "attempts": 0,
+            "contract_migrations": ([dict(migration, when="add")] if migration else []),
         }
         if any(old.get("id") == run["id"] for old in data["runs"]):
             raise ValueError(f"run id already queued: {run['id']} (use --name to distinguish it)")
@@ -87,6 +97,109 @@ def add(manifest: Path, intent_path: Path, repeat: int = 1, name: str | None = N
             clock += dt.timedelta(seconds=1)
     _atomic_json(manifest, data)
     return added
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    parts = []
+    for piece in str(value).lstrip("v").split("."):
+        try:
+            parts.append(int(piece))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
+def _installed_contracts_version() -> str:
+    from vmodel_contracts import CONTRACT_VERSION
+
+    return CONTRACT_VERSION
+
+
+def _append_audit(log_path: Path, line: str) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a") as log:
+        log.write(line.rstrip() + "\n")
+
+
+def migrate_intent(intent_path: Path, log_path: Path | None = None) -> dict | None:
+    """Self-healing handoff: run the validating migrator on an intent model.
+
+    The migrator (python -m vmodel_contracts.migrate) validates the payload
+    against the CURRENT schema first: an older but compatible payload is
+    re-stamped and this returns {"from": old, "to": new}; a payload with real
+    schema drift is refused loudly (ValueError) and left byte-for-byte
+    untouched - never silently re-stamped. An intent NEWER than the installed
+    contracts means this checkout is behind: pull, do not re-run the interview.
+    Every migration is audited to the terminal and, when given, to log_path.
+    """
+    try:
+        before = json.loads(intent_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        raise ValueError(f"{intent_path}: cannot read intent model ({e})") from e
+    have = before.get("contract_version")
+    current = _installed_contracts_version()
+    if isinstance(have, str) and _version_tuple(have) > _version_tuple(current):
+        raise ValueError(
+            f"{intent_path} was produced against vmodel-contracts {have}, which is NEWER than the "
+            f"{current} installed here. This checkout is behind - fix it with: "
+            "cd <repo> && git pull && pip install -e \".[dev]\" for each repo under the require root. "
+            "Do NOT re-run the interview; the intent model is fine."
+        )
+    proc = subprocess.run([sys.executable, "-m", "vmodel_contracts.migrate", str(intent_path)],
+                          capture_output=True, text=True)
+    output = (proc.stdout + proc.stderr).strip()
+    if proc.returncode != 0:
+        raise ValueError(
+            f"{intent_path} is not compatible with vmodel-contracts {current} and was left unchanged. "
+            "It needs a re-run of the interview, not a migration. Migrator said:\n" + output
+        )
+    after = json.loads(intent_path.read_text())
+    new = after.get("contract_version")
+    if have == new:
+        return None
+    record = {"from": have, "to": new, "at": dt.datetime.now().isoformat(timespec="seconds")}
+    audit = f"[batch] contract migration: intent contract_version {have} -> {new} (validated against the current schema first)"
+    print(audit, flush=True)
+    if output:
+        print(output, flush=True)
+    if log_path is not None:
+        _append_audit(log_path, audit)
+        for line in output.splitlines():
+            _append_audit(log_path, f"[batch]   {line}")
+    return record
+
+
+def preflight_repo_consistency(require_root: Path) -> None:
+    """Every participating repo must pin the same vmodel-contracts tag.
+
+    A mismatch means one repo's checkout is behind a contract release; running
+    the queue anyway strands payloads at the boundary (tonight's exit-1). Name
+    the behind repo and its fix, and stop BEFORE burning queue hours.
+    """
+    pins: dict[str, str] = {}
+    for name in PARTICIPATING_REPOS:
+        pyproject = require_root / name / "pyproject.toml"
+        pin = None
+        if pyproject.is_file():
+            match = PIN_RE.search(pyproject.read_text())
+            pin = match.group(1) if match else None
+        if pin is None:
+            raise ValueError(f"{name}: no vmodel-contracts release tag found in {pyproject}")
+        pins[name] = pin
+    distinct = sorted(set(pins.values()), key=_version_tuple)
+    if len(distinct) == 1:
+        return
+    oldest = distinct[0]
+    behind = [name for name, pin in pins.items() if pin == oldest]
+    detail = ", ".join(f"{name} pins {pin}" for name, pin in sorted(pins.items()))
+    commands = "\n".join(
+        f"  cd {require_root / name} && git pull && pip install -e \".[dev]\"" for name in behind
+    )
+    raise ValueError(
+        f"participating repos disagree on vmodel-contracts ({detail}). "
+        f"{', '.join(behind)} is behind a contract release. Update it first:\n{commands}\n"
+        "then re-run the queue. Older intent payloads are migrated automatically once the repos agree."
+    )
 
 
 def _json_file(path: Path, default):
@@ -227,6 +340,7 @@ def _run_logged(command: list[str], cwd: Path, env: dict, log_path: Path) -> int
 
 
 def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> int:
+    preflight_repo_consistency(require_root)
     data = _load(manifest)
     # A prior SIGINT/SIGTERM leaves the manifest at `running`; that is pending
     # and resumes in its recorded directory. A real nonzero exit is `failed`
@@ -246,6 +360,23 @@ def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> i
         env = dict(os.environ, VMODEL_LLM_LOG=str(out / "llm-calls.jsonl"))
         started = time.monotonic()
         run_log = out / "run.log"
+        for prior in run.get("contract_migrations", []):
+            _append_audit(run_log, f"[batch] contract migration on record: intent contract_version "
+                                   f"{prior.get('from')} -> {prior.get('to')} at {prior.get('at')} ({prior.get('when')})")
+        try:
+            migration = migrate_intent(Path(run["intent_model"]), log_path=run_log)
+        except ValueError as e:
+            run["status"] = "failed"
+            run["exit_code"] = None
+            run["error"] = f"intent contract migration refused: {e}"
+            run["finished_at"] = dt.datetime.now().isoformat(timespec="seconds")
+            _atomic_json(manifest, data)
+            _append_audit(run_log, f"[batch] FAILED before start: {e}")
+            print(f"Stopped: {run['id']} - {e}", file=sys.stderr)
+            return 1
+        if migration:
+            run.setdefault("contract_migrations", []).append(dict(migration, when="run"))
+            _atomic_json(manifest, data)
         rc = _run_logged([sys.executable, "-m", "spec_generator.cli", run["intent_model"],
                           "-o", run["artifacts"]], cwd=sg, env=env, log_path=run_log)
         run["wall_seconds"] = round(float(run.get("wall_seconds", 0)) + time.monotonic() - started, 3)
