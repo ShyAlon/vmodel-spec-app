@@ -125,6 +125,12 @@ want "$SHARED" '^VMODEL_LLM_MAX_CALLS=50$' "guardrails: user-set call budget pre
 want "$SHARED" '^VMODEL_LLM_MAX_TOKENS=4096$' "guardrails: user-set max-tokens preserved"
 want "$SHARED" '^VMODEL_LLM_CALL_TIMEOUT_S=600$' "guardrails: earlier default still there"
 
+# shared scripts runbook: every batch lifecycle command is documented
+for cmd in " add " " run" " report" " retry "; do
+  grep -q "batch-specs.py.*$cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"
+done
+ok "scripts README documents batch lifecycle"
+
 # batch-specs: Python unit coverage for queue ids, repeat outputs, evaluator.
 # Use python3: this check runs after the test shim prepended a fake `python`.
 if python3 "$SCRIPTS/tests/test_batch_specs.py" >/dev/null; then
