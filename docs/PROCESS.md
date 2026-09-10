@@ -32,7 +32,7 @@ founder sentence
 | then: Assembling + validating bundle      deterministic, no LLM          |
 +-------------------------------------------------------------------------+
    |
-   v   bundle/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/*.md,
+   v   artifacts-YYYY-MM-DD_HH-MM-SS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/*.md,
    |             traceability.json, manifest.json)
 +--------------------------- VERIFICATION-LOOP -----------------------------+
 | deterministic first: acceptance-test runner (in the founder's own env),  |

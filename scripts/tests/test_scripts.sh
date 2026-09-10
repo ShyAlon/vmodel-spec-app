@@ -94,8 +94,8 @@ export SHIM_LOG="$TMP/shim.log"
 PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" >/dev/null \
   && ok "full flow exits clean" || bad "full flow exits clean"
 grep -q "interview_engine.cli a test idea" "$SHIM_LOG" && ok "interview got the idea" || bad "interview got the idea"
-grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json -o bundle/ --review" "$SHIM_LOG" \
-  && ok "spec-generator got the captured session's intent model + --review" || { bad "spec-generator handoff"; cat "$SHIM_LOG"; }
+grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --review" "$SHIM_LOG" \
+  && ok "spec-generator got the captured session's intent model + default artifacts dir + --review" || { bad "spec-generator handoff"; cat "$SHIM_LOG"; }
 # unapproved interview (no intent_model.json) stops before spec-generator
 rm -f "$ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json"
 : > "$SHIM_LOG"

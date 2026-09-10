@@ -48,8 +48,16 @@ fi
 echo
 echo "== spec generation for session $SESSION (review gates on) =="
 cd "$SG"
-python -m spec_generator.cli "$INTENT" -o bundle/ --review
+python -m spec_generator.cli "$INTENT" --review
+
+# Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
+# human-readable, stable default so this handoff points to the resumable run.
+if [[ "$SESSION" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+  ARTIFACTS="artifacts-${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}_${BASH_REMATCH[4]}-${BASH_REMATCH[5]}-${BASH_REMATCH[6]}"
+else
+  ARTIFACTS="artifacts directory printed above"
+fi
 
 echo
-echo "Done. Bundle: $SG/bundle/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
-echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT -o bundle/ --from <stage>"
+echo "Done. Artifacts: $SG/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
+echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --from <stage>"
