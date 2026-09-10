@@ -104,5 +104,21 @@ PATH="$BIN:$PATH" SHIM_NO_APPROVE=1 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full
 grep -q "spec_generator" "$SHIM_LOG" && bad "spec-generator NOT run without approval" || ok "spec-generator NOT run without approval"
 
 echo
+# guardrail knobs: defaults added when absent, never overridden, never duplicated
+want "$SHARED" '^VMODEL_LLM_CALL_TIMEOUT_S=600$' "guardrails: call timeout default written"
+want "$SHARED" '^VMODEL_LLM_STALL_TIMEOUT_S=180$' "guardrails: stall timeout default written"
+want "$SHARED" '^VMODEL_LLM_MAX_CALLS=200$' "guardrails: call budget default written"
+want "$SHARED" '^# VMODEL_LLM_MAX_TOKENS: per-call generation-length ceiling' "guardrails: max-tokens documented (per-stage default)"
+REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" ollama >/dev/null || bad "guardrails rerun exits clean"
+[ "$(grep -c '^VMODEL_LLM_MAX_CALLS=' "$SHARED")" = "1" ] && ok "guardrails rerun: defaults not duplicated" || bad "guardrails rerun: defaults not duplicated"
+[ "$(grep -c '^# VMODEL_LLM_MAX_TOKENS:' "$SHARED")" = "1" ] && ok "guardrails rerun: max-tokens comment not duplicated" || bad "guardrails rerun: max-tokens comment not duplicated"
+# user-set values survive the next run untouched
+printf 'VMODEL_LLM_MAX_CALLS=50\nVMODEL_LLM_MAX_TOKENS=4096\n' >> "$SHARED"
+REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null 2>&1 || \
+  DEEPSEEK_API_KEY=sk-test-CCCC REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null || bad "guardrails preserve run exits clean"
+want "$SHARED" '^VMODEL_LLM_MAX_CALLS=50$' "guardrails: user-set call budget preserved"
+want "$SHARED" '^VMODEL_LLM_MAX_TOKENS=4096$' "guardrails: user-set max-tokens preserved"
+want "$SHARED" '^VMODEL_LLM_CALL_TIMEOUT_S=600$' "guardrails: earlier default still there"
+
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

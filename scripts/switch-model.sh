@@ -17,6 +17,11 @@
 # repo file, so stale per-repo overrides never linger. Unrelated lines in
 # repo .env files are left alone.
 #
+# Guardrail knobs (VMODEL_LLM_CALL_TIMEOUT_S / VMODEL_LLM_STALL_TIMEOUT_S /
+# VMODEL_LLM_MAX_CALLS): defaults are added to the shared file when absent
+# and NEVER overwritten once set. VMODEL_LLM_MAX_TOKENS is documented in a
+# comment instead (its default is per stage, not one number).
+#
 # API keys: hand them over without landing in shell history or a process
 # list - either export first:
 #   OPENAI_API_KEY=sk-... scripts/switch-model.sh openai
@@ -107,6 +112,28 @@ done
 for k in $MODEL_KEYS; do
   set_env "$SHARED" "$k" "$MODEL"
 done
+
+# Guardrail knobs: write the defaults when ABSENT, never override a value the
+# user already set - these are global limits and his edits are the point.
+ensure_default() {
+  local key="$1" value="$2"
+  grep -qE "^${key}=" "$SHARED" 2>/dev/null && return 0
+  printf '%s=%s\n' "$key" "$value" >> "$SHARED"
+  echo "  - added default $key=$value (tune freely; never overwritten)"
+}
+ensure_default VMODEL_LLM_CALL_TIMEOUT_S 600
+ensure_default VMODEL_LLM_STALL_TIMEOUT_S 180
+ensure_default VMODEL_LLM_MAX_CALLS 200
+# VMODEL_LLM_MAX_TOKENS has no single default - each stage ships its own tuned
+# ceiling - so document it in a comment once instead of writing a misleading value.
+if ! grep -qE "^VMODEL_LLM_MAX_TOKENS=" "$SHARED" && ! grep -q "^# VMODEL_LLM_MAX_TOKENS:" "$SHARED"; then
+  printf '%s\n' \
+    "# VMODEL_LLM_MAX_TOKENS: per-call generation-length ceiling. Unset = each stage's tuned" \
+    "# default (spec-generator 8192, its tests stage 12288, interview-engine 2048," \
+    "# verification-loop 4096). Uncomment with a number to cap every call globally." \
+    "#VMODEL_LLM_MAX_TOKENS=" >> "$SHARED"
+  echo "  - documented VMODEL_LLM_MAX_TOKENS (per-stage defaults; uncomment to cap globally)"
+fi
 if [ -n "$KEY_VAR" ]; then
   set_env "$SHARED" "$KEY_VAR" "$API_KEY"
   API_KEY=""  # drop it from the shell as soon as it is on disk
