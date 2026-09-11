@@ -1,6 +1,7 @@
 import datetime as dt
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -86,6 +87,28 @@ class BatchSpecsTests(unittest.TestCase):
             self.assertIn("visible err", buf.getvalue())
             self.assertIn("visible out", log.read_text())
             self.assertIn("visible err", log.read_text())
+
+
+    def test_macos_spec_generator_child_uses_caffeinate(self):
+        from unittest import mock
+        command = ["python", "-m", "spec_generator.cli"]
+        with mock.patch.object(batch.sys, "platform", "darwin"), \
+             mock.patch.object(batch.shutil, "which", return_value="/usr/bin/caffeinate"):
+            self.assertEqual(batch._keep_awake_command(command),
+                             ["caffeinate", "-dims", *command])
+        with mock.patch.object(batch.sys, "platform", "linux"):
+            self.assertEqual(batch._keep_awake_command(command), command)
+
+    def test_estimate_scales_with_resumed_test_count(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d); out = root / "spec-generator" / "artifacts-x"
+            out.mkdir(parents=True)
+            run = {"artifacts": "artifacts-x"}
+            self.assertEqual(batch._estimate_hours(run, root),
+                             (batch.HOURS_MIN, batch.HOURS_MAX))
+            (out / "tests.json").write_text(json.dumps([{}] * 94))
+            self.assertEqual(batch._estimate_hours(run, root),
+                             (batch.HOURS_MIN * 2, batch.HOURS_MAX * 2))
 
     def test_pending_count_distinguishes_runnable_states(self):
         with tempfile.TemporaryDirectory() as d:
@@ -179,3 +202,4 @@ class ContractHandoffTests(unittest.TestCase):
                 batch.run_queue(manifest, root)
             self.assertIn("interview-engine", str(ctx.exception))
             self.assertEqual(batch._load(manifest)["runs"][0]["status"], "queued")  # untouched
+

@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -20,8 +21,9 @@ from collections import Counter
 from pathlib import Path
 
 VERSION = 1
-HOURS_MIN = 2.5
-HOURS_MAX = 3.0
+HOURS_MIN = 3.5
+HOURS_MAX = 4.0
+BASELINE_TESTS = 47
 
 # The batch flow spans exactly these sibling repos: interview-engine produces
 # the intent model, spec-generator consumes it. Both pin a vmodel-contracts
@@ -320,12 +322,32 @@ def retry(manifest: Path, run_id: str) -> dict:
     return run
 
 
+def _keep_awake_command(command: list[str]) -> list[str]:
+    """Prevent a long local generation from being throttled by macOS sleep."""
+    if sys.platform == "darwin" and shutil.which("caffeinate"):
+        return ["caffeinate", "-dims", *command]
+    return command
+
+
+def _estimate_hours(run: dict, require_root: Path) -> tuple[float, float]:
+    """Scale resumed-run estimates when a generated test count is available."""
+    tests = _json_file(require_root / "spec-generator" / run["artifacts"] / "tests.json", [])
+    count = len(tests) if isinstance(tests, list) else 0
+    factor = max(1.0, count / BASELINE_TESTS) if count else 1.0
+    return HOURS_MIN * factor, HOURS_MAX * factor
+
+
 def _run_logged(command: list[str], cwd: Path, env: dict, log_path: Path) -> int:
     """Stream child output to the terminal and a durable per-run log."""
+    command = _keep_awake_command(command)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a") as log:
         stamp = dt.datetime.now().isoformat(timespec="seconds")
         log.write(f"\n=== attempt started {stamp} ===\n")
+        if command and command[0] == "caffeinate":
+            audit = "[batch] macOS keep-awake active: caffeinate -dims"
+            print(audit, flush=True)
+            log.write(audit + "\n")
         log.flush()
         proc = subprocess.Popen(command, cwd=cwd, env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, bufsize=1)
@@ -348,7 +370,9 @@ def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> i
     pending = [r for r in data["runs"] if r.get("status") in ("queued", "running")]
     if limit is not None:
         pending = pending[:limit]
-    print(f"Queued: {len(pending)} sequential run(s); estimated {len(pending)*HOURS_MIN:.1f}-{len(pending)*HOURS_MAX:.1f} hours total.")
+    estimates = [_estimate_hours(run, require_root) for run in pending]
+    print(f"Queued: {len(pending)} sequential run(s); estimated "
+          f"{sum(x[0] for x in estimates):.1f}-{sum(x[1] for x in estimates):.1f} hours total.")
     sg = require_root / "spec-generator"
     failures = 0
     for pos, run in enumerate(pending, 1):
@@ -356,7 +380,9 @@ def run_queue(manifest: Path, require_root: Path, limit: int | None = None) -> i
         run.update(status="running", attempts=int(run.get("attempts", 0)) + 1,
                    started_at=run.get("started_at") or dt.datetime.now().isoformat(timespec="seconds"))
         _atomic_json(manifest, data)
-        print(f"[{pos}/{len(pending)}] {run['id']} -> {out} (estimate {HOURS_MIN}-{HOURS_MAX}h)", flush=True)
+        estimate = _estimate_hours(run, require_root)
+        print(f"[{pos}/{len(pending)}] {run['id']} -> {out} "
+              f"(estimate {estimate[0]:.1f}-{estimate[1]:.1f}h)", flush=True)
         env = dict(os.environ, VMODEL_LLM_LOG=str(out / "llm-calls.jsonl"))
         started = time.monotonic()
         run_log = out / "run.log"
@@ -437,3 +463,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

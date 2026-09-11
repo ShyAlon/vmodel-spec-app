@@ -11,9 +11,10 @@ native interactive interview repeatedly, queues each approved session, and
 asks whether you want another. When you answer no (or `done` / `enough`), it
 starts sequential spec generation automatically. You may
 queue sessions over several days, then process them sequentially. Local Ollama
-runs are intentionally never parallel: with phi4, plan on roughly 2.5-3 hours
-per full spec. The runner prints the run count and total estimate before it
-starts.
+runs are intentionally never parallel: with phi4, plan on roughly 3.5-4 hours
+per full spec on an unthrottled M4 Air. A resumed run with `tests.json` already
+present scales the estimate from its actual test count. The runner prints the
+run count and total estimate before it starts.
 
 Each queued run gets a dedicated directory under spec-generator:
 
@@ -107,6 +108,21 @@ If the process is interrupted, run the same command again. A run left in the
 `running` state keeps its assigned artifacts directory, so spec-generator
 resumes from that directory's checkpoint.
 
+### Overnight runs on macOS
+
+On macOS, the queue launches each spec-generator child under `caffeinate -dims`.
+That keeps the system and display awake and prevents idle or disk sleep for the
+life of the child; other platforms run the same command without a wrapper. Keep
+the Mac plugged into power. Closing a MacBook lid can still force sleep, so
+leave the lid open unless it is connected to an external display and power in a
+supported closed-display setup.
+
+A sleep or power-management throttle looks different from a larger model call:
+`llm-calls.jsonl` shows roughly the same token counts as normal calls, but wall
+latency and `ttft_s` jump from about 1-2 minutes to 20-30 minutes. Rising TTFT at
+unchanged token counts points to host-side sleep, thermal pressure, or memory
+pressure/swap rather than the model producing more work.
+
 ### 4. Retry a diagnosed failure
 
 A nonzero exit marks the run `failed` and stops the queue. Fix the cause first,
@@ -183,3 +199,4 @@ scripts/switch-model.sh deepseek
 cd ~/development/require/vmodel-spec-app
 scripts/switch-model.sh openai
 ```
+
