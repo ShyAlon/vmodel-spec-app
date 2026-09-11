@@ -1,0 +1,93 @@
+{
+  "contract_version": "0.12.0",
+  "baseline_version": "1.0",
+  "baseline_id": "vmodel-six-repos-2026-09-11",
+  "system_name": "V-model specification and verification pipeline",
+  "mode": "existing",
+  "repositories": [
+    {
+      "contract_version": "0.12.0",
+      "name": "vmodel-contracts",
+      "languages": ["Python"],
+      "package_entry_points": ["vmodel-contracts-export = vmodel_contracts.export_schema:main"],
+      "module_entry_points": ["vmodel_contracts.migrate", "vmodel_contracts.export_schema"],
+      "existing_artifacts": ["Pydantic contract models", "exported JSON Schemas"],
+      "existing_contracts": ["IntakeSubmission", "IntentModel", "SystemBaseline", "StakeholderNeedsSet", "SRSDocument", "ArchitectureOverview", "SpecBundle", "VerificationReport", "DeliveryBundle"],
+      "runtime": ["Python 3.10+", "Pydantic 2"],
+      "persistence": [],
+      "integrations": ["GitHub package pin consumed by every Python service repo"],
+      "immutable_decisions": ["Only vmodel-contracts models cross repository boundaries", "Payloads carry contract_version", "Contract releases are SemVer-tagged before consumer pins move"]
+    },
+    {
+      "contract_version": "0.12.0",
+      "name": "vmodel-spec-app",
+      "languages": ["Markdown", "Python", "Bash"],
+      "package_entry_points": ["scripts/batch-specs.sh", "scripts/run-full-flow.sh"],
+      "module_entry_points": ["scripts/batch-specs.py"],
+      "existing_artifacts": ["ARCHITECTURE.md", "process and ADR documents", "founder-facing orchestration scripts"],
+      "existing_contracts": ["Repository-level architecture and process decisions"],
+      "runtime": ["macOS Bash 3.2", "zsh-compatible launcher", "Python 3.10+"],
+      "persistence": ["batch queue and run files on local filesystem"],
+      "integrations": ["interview-engine CLI", "spec-generator CLI", "verification-loop"],
+      "immutable_decisions": ["Founder batch entry point preserves queued/running work", "Scripts work when launched from macOS default shells"]
+    },
+    {
+      "contract_version": "0.12.0",
+      "name": "interview-engine",
+      "languages": ["Python"],
+      "package_entry_points": [],
+      "module_entry_points": ["python -m interview_engine.cli"],
+      "existing_artifacts": ["IntentModel JSON", "InterviewTranscript and checkpoint state"],
+      "existing_contracts": ["Consumes IntakeSubmission", "Produces IntentModel"],
+      "runtime": ["Python 3.10+", "LangGraph", "local-first Ollama with provider overrides"],
+      "persistence": ["SQLite LangGraph checkpoints", "JSON artifacts in out/<session>"],
+      "integrations": ["Ollama", "OpenAI-compatible providers", "Anthropic optional"],
+      "immutable_decisions": ["Founder deferrals are terminal for that sub-topic", "Coverage uses provider-enforced structured output", "Completed stages resume without being regenerated"]
+    },
+    {
+      "contract_version": "0.12.0",
+      "name": "spec-generator",
+      "languages": ["Python"],
+      "package_entry_points": [],
+      "module_entry_points": ["python -m spec_generator.cli"],
+      "existing_artifacts": ["needs.json/md", "srs.json/md", "architecture.json/md", "items.json", "specs/SPEC-*.md", "tests.json", "traceability.json", "manifest.json", "AGENTS.md"],
+      "existing_contracts": ["Consumes IntentModel and SystemBaseline", "Produces ArchitectureOverview and SpecBundle"],
+      "runtime": ["Python 3.10+", "LangGraph", "local-first Ollama with provider overrides"],
+      "persistence": ["SQLite LangGraph checkpoints", "atomic JSON/Markdown artifacts", "per-item partial JSON for resume"],
+      "integrations": ["Ollama", "OpenAI-compatible providers", "Anthropic optional"],
+      "immutable_decisions": ["Code owns IDs, ordering, stable containers and trace links", "Model owns substantive prose", "Stage experiments write a new directory and never mutate their source"]
+    },
+    {
+      "contract_version": "0.12.0",
+      "name": "verification-loop",
+      "languages": ["Python"],
+      "package_entry_points": [],
+      "module_entry_points": ["python -m verification_loop.founder_runner"],
+      "existing_artifacts": ["dependency-free founder runner", "VerificationReport", "trace and divergence reports"],
+      "existing_contracts": ["Consumes SpecBundle, AcceptanceTest set and build artifact reference", "Produces VerificationReport"],
+      "runtime": ["Python 3.10+", "deterministic checks first", "optional LLM semantic residue judge"],
+      "persistence": ["JSON reports and runner result files"],
+      "integrations": ["Ollama embeddings endpoint", "HTTP via httpx", "optional OpenAI-compatible LLM"],
+      "immutable_decisions": ["Tests execute in the founder environment", "LLM judges only semantic residue after deterministic checks"]
+    },
+    {
+      "contract_version": "0.12.0",
+      "name": "delivery-api",
+      "languages": ["Python"],
+      "package_entry_points": [],
+      "module_entry_points": ["delivery_api.app:app via uvicorn"],
+      "existing_artifacts": ["run links", "run state", "usage ledger", "delivery bundles"],
+      "existing_contracts": ["Consumes and serves versioned pipeline payloads through delivery contracts"],
+      "runtime": ["Python 3.10+", "FastAPI", "Uvicorn", "background job seam"],
+      "persistence": ["SQLite Store implementation"],
+      "integrations": ["interview-engine job", "spec-generator job", "verification-loop job"],
+      "immutable_decisions": ["Generation and verification are background jobs", "Per-run and global budget hard stops", "Personal links instead of user accounts for the demo"]
+    }
+  ],
+  "immutable_decisions": [
+    "Six separate repositories: vmodel-contracts, vmodel-spec-app, interview-engine, spec-generator, verification-loop, delivery-api",
+    "Modules never import each other; they exchange only versioned vmodel-contracts payloads",
+    "Local development is Ollama-first and long runs are resumable",
+    "Architecture must preserve existing repositories and technologies unless a migration ADR provides evidence and affected repositories"
+  ]
+}
