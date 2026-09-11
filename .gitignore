@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+
+# Generated batch queue state and reports
+batch-specs.json
+batch-report.json
+batch-report.md
+run.log
+llm-calls.jsonl
