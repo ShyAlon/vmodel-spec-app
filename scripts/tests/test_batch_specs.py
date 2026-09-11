@@ -92,12 +92,12 @@ class BatchSpecsTests(unittest.TestCase):
     def test_macos_spec_generator_child_uses_caffeinate(self):
         from unittest import mock
         command = ["python", "-m", "spec_generator.cli"]
-        with mock.patch.object(batch.sys, "platform", "darwin"), \
-             mock.patch.object(batch.shutil, "which", return_value="/usr/bin/caffeinate"):
-            self.assertEqual(batch._keep_awake_command(command),
+        with mock.patch("vmodel_contracts.runtime.sys.platform", "darwin"), \
+             mock.patch("vmodel_contracts.runtime.shutil.which", return_value="/usr/bin/caffeinate"):
+            self.assertEqual(batch.keep_awake_command(command),
                              ["caffeinate", "-dims", *command])
-        with mock.patch.object(batch.sys, "platform", "linux"):
-            self.assertEqual(batch._keep_awake_command(command), command)
+        with mock.patch("vmodel_contracts.runtime.sys.platform", "linux"):
+            self.assertEqual(batch.keep_awake_command(command), command)
 
     def test_estimate_scales_with_resumed_test_count(self):
         with tempfile.TemporaryDirectory() as d:
@@ -202,4 +202,5 @@ class ContractHandoffTests(unittest.TestCase):
                 batch.run_queue(manifest, root)
             self.assertIn("interview-engine", str(ctx.exception))
             self.assertEqual(batch._load(manifest)["runs"][0]["status"], "queued")  # untouched
+
 

@@ -13,12 +13,13 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 from collections import Counter
 from pathlib import Path
+
+from vmodel_contracts import keep_awake_command
 
 VERSION = 1
 HOURS_MIN = 3.5
@@ -322,13 +323,6 @@ def retry(manifest: Path, run_id: str) -> dict:
     return run
 
 
-def _keep_awake_command(command: list[str]) -> list[str]:
-    """Prevent a long local generation from being throttled by macOS sleep."""
-    if sys.platform == "darwin" and shutil.which("caffeinate"):
-        return ["caffeinate", "-dims", *command]
-    return command
-
-
 def _estimate_hours(run: dict, require_root: Path) -> tuple[float, float]:
     """Scale resumed-run estimates when a generated test count is available."""
     tests = _json_file(require_root / "spec-generator" / run["artifacts"] / "tests.json", [])
@@ -339,7 +333,7 @@ def _estimate_hours(run: dict, require_root: Path) -> tuple[float, float]:
 
 def _run_logged(command: list[str], cwd: Path, env: dict, log_path: Path) -> int:
     """Stream child output to the terminal and a durable per-run log."""
-    command = _keep_awake_command(command)
+    command = keep_awake_command(command)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a") as log:
         stamp = dt.datetime.now().isoformat(timespec="seconds")
@@ -463,4 +457,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
