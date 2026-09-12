@@ -59,5 +59,5 @@ else
 fi
 
 echo
-echo "Done. Artifacts: $SG/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
+echo "Done. Artifacts: $REQUIRE_ROOT/artifacts/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
 echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --from <stage>"

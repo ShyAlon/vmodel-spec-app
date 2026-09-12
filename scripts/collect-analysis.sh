@@ -7,9 +7,10 @@
 #   bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts <dir>
 #   bash vmodel-spec-app/scripts/collect-analysis.sh <dir>
 #
-# With no argument it picks the NEWEST artifacts-* directory under
-# spec-generator. The bundle lands next to it as
-# <artifacts-dir>-analysis-<timestamp>.tar.gz.
+# With no argument it picks the NEWEST artifacts-* directory across both
+# roots: the workspace-sibling artifacts/ folder (the default since
+# 2026-09-12) and spec-generator/ (explicit -o runs and pre-change runs).
+# The bundle lands in spec-generator/ as <artifacts-dir>-analysis-<timestamp>.tar.gz.
 # `zsh collect-analysis.sh` and `sh collect-analysis.sh` override the shebang.
 if [ -z "${BASH_VERSION:-}" ]; then
   if command -v bash >/dev/null 2>&1; then
@@ -56,12 +57,12 @@ command -v "$PYTHON_BIN" >/dev/null 2>&1 \
   || fail "python3 not found - the collector needs it to read the run's JSON logs (set COLLECT_ANALYSIS_PYTHON to override)"
 
 if [ -z "$ART" ]; then
-  # newest artifacts-* DIRECTORY (the analysis bundles we write are files and
-  # must not shadow real runs)
-  ART="$({ ls -1dt "$SG"/artifacts-* 2>/dev/null || true; } | while IFS= read -r c; do
+  # newest artifacts-* DIRECTORY across both roots (the analysis bundles we
+  # write are files and must not shadow real runs)
+  ART="$({ ls -1dt "$REQUIRE_ROOT"/artifacts/artifacts-* "$SG"/artifacts-* 2>/dev/null || true; } | while IFS= read -r c; do
            if [ -d "$c" ]; then echo "$c"; break; fi
          done)"
-  [ -n "$ART" ] || fail "no artifacts-* directory found under $SG - pass one explicitly: bash scripts/collect-analysis.sh $SG/artifacts-..."
+  [ -n "$ART" ] || fail "no artifacts-* directory found under $REQUIRE_ROOT/artifacts or $SG - pass one explicitly: bash scripts/collect-analysis.sh <dir>"
   echo "Auto-detected newest artifacts directory: $ART"
 else
   [ -d "$ART" ] || fail "artifacts directory not found: $ART"

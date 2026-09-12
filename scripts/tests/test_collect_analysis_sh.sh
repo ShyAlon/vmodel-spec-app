@@ -56,6 +56,19 @@ OUT2="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/collect-analysis.sh")" || bad "secon
 printf '%s' "$OUT2" | grep -q "Auto-detected newest artifacts directory: $NEW" \
   && ok "auto-detect ignores its own bundle files" || bad "auto-detect ignores its own bundle files"
 
+# the workspace-sibling artifacts/ folder (the 2026-09-12 default root) is
+# searched too, and wins when it holds the newest run
+SIB="$ROOT/artifacts/artifacts-2026-09-12_14-00-00"
+mkdir -p "$SIB"
+printf '{"stack_entries":[]}' > "$SIB/architecture.json"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/collect-analysis.sh")" || bad "sibling-root auto-detect run exits clean"
+printf '%s' "$OUT" | grep -q "Auto-detected newest artifacts directory: $SIB" \
+  && ok "auto-detect searches the sibling artifacts/ root" || { bad "auto-detect searches the sibling artifacts/ root"; echo "$OUT"; }
+rm -rf "$ROOT/artifacts"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/collect-analysis.sh")" || bad "fallback auto-detect run exits clean"
+printf '%s' "$OUT" | grep -q "Auto-detected newest artifacts directory: $NEW" \
+  && ok "auto-detect falls back to spec-generator/ runs" || { bad "auto-detect falls back to spec-generator/ runs"; echo "$OUT"; }
+
 # explicit dir override: the complete run, full summary
 OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/collect-analysis.sh" --artifacts "$OLD")" || bad "explicit --artifacts run exits clean"
 printf '%s' "$OUT" | grep -q "Status: complete (full bundle assembled)" && ok "complete run reported complete" || { bad "complete run reported complete"; echo "$OUT"; }
