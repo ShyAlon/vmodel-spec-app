@@ -204,10 +204,12 @@ scripts/switch-model.sh openai
 ## Collecting run analysis
 
 `collect-analysis.sh` packs one run's analysis data into a single bundle to
-send for review. With no argument it picks the newest `artifacts-*` directory
-across both roots - the workspace-sibling `artifacts/` folder (the default
-since 2026-09-12) and `spec-generator/` (explicit `-o` and pre-change runs);
-pass `--artifacts <dir>` (or the dir alone) to pick a
+send for review. With no argument it picks the newest COMPLETED run
+(`manifest.json` present) across both roots - the workspace-sibling
+`artifacts/` folder (the default since 2026-09-12) and `spec-generator/`
+(explicit `-o` and pre-change runs); newer stage experiments are skipped with
+a note, and an experiments-only tree falls back to the newest experiment with
+an honest label. Pass `--artifacts <dir>` (or the dir alone) to pick a
 specific run. It includes the LLM call log, usage log, run.log, every stage
 artifact that exists, `specs/`, any `*.partial.json` resume state, and the
 batch report, plus a `MANIFEST.json` saying exactly what was found, included,

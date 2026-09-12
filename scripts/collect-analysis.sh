@@ -7,10 +7,12 @@
 #   bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts <dir>
 #   bash vmodel-spec-app/scripts/collect-analysis.sh <dir>
 #
-# With no argument it picks the NEWEST artifacts-* directory across both
-# roots: the workspace-sibling artifacts/ folder (the default since
-# 2026-09-12) and spec-generator/ (explicit -o runs and pre-change runs).
-# The bundle lands in spec-generator/ as <artifacts-dir>-analysis-<timestamp>.tar.gz.
+# With no argument it picks the newest COMPLETED run (manifest.json present)
+# across both roots: the workspace-sibling artifacts/ folder (the default
+# since 2026-09-12) and spec-generator/ (explicit -o runs and pre-change
+# runs). Stage experiments (no manifest.json) are skipped with a note unless
+# they are all there is. The bundle lands in spec-generator/ as
+# <artifacts-dir>-analysis-<timestamp>.tar.gz.
 # `zsh collect-analysis.sh` and `sh collect-analysis.sh` override the shebang.
 if [ -z "${BASH_VERSION:-}" ]; then
   if command -v bash >/dev/null 2>&1; then
@@ -32,7 +34,7 @@ fail() { echo "error: $*" >&2; exit 1; }
 usage() {
   cat <<'EOF'
 usage:
-  scripts/collect-analysis.sh                      newest artifacts-* under spec-generator
+  scripts/collect-analysis.sh                      newest COMPLETED run (manifest.json) across both roots
   scripts/collect-analysis.sh --artifacts DIR      this specific run directory
   scripts/collect-analysis.sh DIR                  same, positional
 
@@ -57,13 +59,30 @@ command -v "$PYTHON_BIN" >/dev/null 2>&1 \
   || fail "python3 not found - the collector needs it to read the run's JSON logs (set COLLECT_ANALYSIS_PYTHON to override)"
 
 if [ -z "$ART" ]; then
-  # newest artifacts-* DIRECTORY across both roots (the analysis bundles we
-  # write are files and must not shadow real runs)
-  ART="$({ ls -1dt "$REQUIRE_ROOT"/artifacts/artifacts-* "$SG"/artifacts-* 2>/dev/null || true; } | while IFS= read -r c; do
-           if [ -d "$c" ]; then echo "$c"; break; fi
+  # Candidate run dirs across both roots, newest first (the analysis bundles
+  # we write are files and must not shadow real runs).
+  CANDS="$({ ls -1dt "$REQUIRE_ROOT"/artifacts/artifacts-* "$SG"/artifacts-* 2>/dev/null || true; } | while IFS= read -r c; do
+           if [ -d "$c" ]; then echo "$c"; fi
          done)"
+  # A COMPLETED run (manifest.json) outranks a newer stage experiment: a bare
+  # invocation should bundle the real run, not an --only-stage scratchpad
+  # (the 2026-09-12 wrong-bundle round-trip shipped an experiment by mistake).
+  ART=""; SKIPPED=""
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    if [ -f "$c/manifest.json" ]; then ART="$c"; break; fi
+    SKIPPED="${SKIPPED:+$SKIPPED }$(basename "$c")"
+  done <<CANDEOF
+$CANDS
+CANDEOF
+  if [ -n "$ART" ]; then
+    [ -n "$SKIPPED" ] && echo "Auto-detect: skipped stage experiment(s) without manifest.json: $SKIPPED"
+  else
+    ART="$(printf '%s\n' "$CANDS" | head -1)"
+    [ -n "$ART" ] && echo "Note: $(basename "$ART") has no manifest.json - looks like a stage experiment; bundling it anyway."
+  fi
   [ -n "$ART" ] || fail "no artifacts-* directory found under $REQUIRE_ROOT/artifacts or $SG - pass one explicitly: bash scripts/collect-analysis.sh <dir>"
-  echo "Auto-detected newest artifacts directory: $ART"
+  echo "Auto-detected artifacts directory: $ART"
 else
   [ -d "$ART" ] || fail "artifacts directory not found: $ART"
 fi
