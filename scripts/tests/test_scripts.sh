@@ -72,8 +72,10 @@ printf '%s' "$OUT" | grep -q 'sk-oai-CCCC' && bad "openai prompt: key never echo
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai </dev/null >/dev/null 2>&1 && bad "openai missing key rejected" || ok "openai missing key rejected"
 
 # unknown provider fails loudly
-mkdir -p "$ROOT/vmodel-spec-app"
+mkdir -p "$ROOT/vmodel-spec-app" "$ROOT/spec-generator/examples"
 printf '{"baseline_id":"test"}' > "$ROOT/vmodel-spec-app/system-baseline.json"
+printf '{"contract_version":"0.13.0","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' \
+  > "$ROOT/spec-generator/examples/system-baseline.greenfield.json"
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" banana >/dev/null 2>&1 && bad "unknown provider rejected" || ok "unknown provider rejected"
 # missing repo is skipped, not fatal
 rm -rf "$ROOT/verification-loop"
@@ -98,7 +100,7 @@ fi
 SHIM
 chmod +x "$BIN/python"
 export SHIM_LOG="$TMP/shim.log"
-PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" >/dev/null \
+PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" --baseline "$ROOT/vmodel-spec-app/system-baseline.json" >/dev/null \
   && ok "full flow exits clean" || bad "full flow exits clean"
 grep -q "interview_engine.cli a test idea" "$SHIM_LOG" && ok "interview got the idea" || bad "interview got the idea"
 grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --system-baseline $ROOT/vmodel-spec-app/system-baseline.json --review" "$SHIM_LOG" \
@@ -106,9 +108,22 @@ grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/inte
 # unapproved interview (no intent_model.json) stops before spec-generator
 rm -f "$ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json"
 : > "$SHIM_LOG"
-PATH="$BIN:$PATH" SHIM_NO_APPROVE=1 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "again" >/dev/null 2>&1 \
+PATH="$BIN:$PATH" SHIM_NO_APPROVE=1 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "again" --baseline "$ROOT/vmodel-spec-app/system-baseline.json" >/dev/null 2>&1 \
   && bad "unapproved interview stops the flow" || ok "unapproved interview stops the flow"
 grep -q "spec_generator" "$SHIM_LOG" && bad "spec-generator NOT run without approval" || ok "spec-generator NOT run without approval"
+# the baseline is an explicit choice: no --greenfield/--baseline, no flow
+: > "$SHIM_LOG"
+PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" >/dev/null 2>&1 \
+  && bad "full flow without an anchor choice is rejected" || ok "full flow without an anchor choice is rejected"
+grep -q "interview_engine" "$SHIM_LOG" && bad "interview NOT run without anchor choice" || ok "interview NOT run without anchor choice"
+# --greenfield materializes a per-session greenfield baseline and passes it
+: > "$SHIM_LOG"
+PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" --greenfield >/dev/null \
+  && ok "full flow --greenfield exits clean" || bad "full flow --greenfield exits clean"
+grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --system-baseline $ROOT/interview-engine/out/20260909-210000-ab12/greenfield-baseline.json --review" "$SHIM_LOG" \
+  && ok "spec-generator got the materialized greenfield baseline" || { bad "greenfield handoff"; cat "$SHIM_LOG"; }
+grep -q '"mode": "greenfield"' "$ROOT/interview-engine/out/20260909-210000-ab12/greenfield-baseline.json" \
+  && ok "materialized baseline is mode=greenfield" || bad "materialized baseline mode"
 
 echo
 # guardrail knobs: defaults added when absent, never overridden, never duplicated

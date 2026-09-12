@@ -170,9 +170,15 @@ timestamped artifacts - nothing reused):
 ```bash
 cd ~/development/require/vmodel-spec-app
 scripts/new-interview.sh "a marketplace for surf lessons in Tel Aviv"
-scripts/new-spec.sh            # auto-picks the newest interview session
-scripts/new-spec.sh <session>  # or name one explicitly
+scripts/new-spec.sh --greenfield                       # a NEW product (auto-picks the newest session)
+scripts/new-spec.sh <session> --greenfield             # name the session explicitly
+scripts/new-spec.sh --baseline vmodel-spec-app/system-baseline.json   # the V-model system itself
 ```
+
+The baseline is always an explicit choice - a new product anchored to some
+other system's baseline produces a grounded-but-wrong architecture.
+--greenfield materializes a per-session greenfield baseline next to the
+session's intent model.
 
 Resume an interrupted interview with `scripts/new-interview.sh --session <id>`.
 
@@ -182,14 +188,15 @@ Runs interview-engine and, after approval, spec-generator with review gates:
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-scripts/run-full-flow.sh "a marketplace for surf lessons in Tel Aviv"
+scripts/run-full-flow.sh "a marketplace for surf lessons in Tel Aviv" --greenfield
+scripts/run-full-flow.sh "improve the spec pipeline" --baseline vmodel-spec-app/system-baseline.json
 ```
 
 Resume an interrupted interview:
 
 ```bash
 cd ~/development/require/vmodel-spec-app
-scripts/run-full-flow.sh --session <session>
+scripts/run-full-flow.sh --session <session> --greenfield
 ```
 
 ## Switch every process to one model
