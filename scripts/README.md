@@ -200,3 +200,22 @@ cd ~/development/require/vmodel-spec-app
 scripts/switch-model.sh openai
 ```
 
+
+## Collecting run analysis
+
+`collect-analysis.sh` packs one run's analysis data into a single bundle to
+send for review. With no argument it picks the newest `artifacts-*` directory
+under spec-generator; pass `--artifacts <dir>` (or the dir alone) to pick a
+specific run. It includes the LLM call log, usage log, run.log, every stage
+artifact that exists, `specs/`, any `*.partial.json` resume state, and the
+batch report, plus a `MANIFEST.json` saying exactly what was found, included,
+and missing. It prints a one-look summary - run status, per-stage call
+counts, models, wall time, token totals - and the exact bundle path to send:
+
+```bash
+bash vmodel-spec-app/scripts/collect-analysis.sh
+bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts spec-generator/artifacts-2026-09-10_20-55-21
+```
+
+The bundle lands next to the run as `<artifacts-dir>-analysis-<timestamp>.tar.gz`.
+Binary run state (`checkpoints.sqlite`) is excluded by design.

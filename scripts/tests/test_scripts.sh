@@ -131,6 +131,12 @@ else
   bad "bash batch entrypoint"
 fi
 
+if bash "$SCRIPTS/tests/test_collect_analysis_sh.sh"; then
+  ok "analysis collector bundles runs and reports honestly"
+else
+  bad "analysis collector"
+fi
+
 # shared scripts runbook: every batch lifecycle command is documented
 for cmd in add run report retry; do
   grep -q "batch-specs.sh $cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"
