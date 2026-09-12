@@ -72,6 +72,8 @@ printf '%s' "$OUT" | grep -q 'sk-oai-CCCC' && bad "openai prompt: key never echo
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai </dev/null >/dev/null 2>&1 && bad "openai missing key rejected" || ok "openai missing key rejected"
 
 # unknown provider fails loudly
+mkdir -p "$ROOT/vmodel-spec-app"
+printf '{"baseline_id":"test"}' > "$ROOT/vmodel-spec-app/system-baseline.json"
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" banana >/dev/null 2>&1 && bad "unknown provider rejected" || ok "unknown provider rejected"
 # missing repo is skipped, not fatal
 rm -rf "$ROOT/verification-loop"
@@ -99,8 +101,8 @@ export SHIM_LOG="$TMP/shim.log"
 PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" >/dev/null \
   && ok "full flow exits clean" || bad "full flow exits clean"
 grep -q "interview_engine.cli a test idea" "$SHIM_LOG" && ok "interview got the idea" || bad "interview got the idea"
-grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --review" "$SHIM_LOG" \
-  && ok "spec-generator got the captured session's intent model + default artifacts dir + --review" || { bad "spec-generator handoff"; cat "$SHIM_LOG"; }
+grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --system-baseline $ROOT/vmodel-spec-app/system-baseline.json --review" "$SHIM_LOG" \
+  && ok "spec-generator got the captured session's intent model + baseline + --review" || { bad "spec-generator handoff"; cat "$SHIM_LOG"; }
 # unapproved interview (no intent_model.json) stops before spec-generator
 rm -f "$ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json"
 : > "$SHIM_LOG"
