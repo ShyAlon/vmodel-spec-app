@@ -137,6 +137,12 @@ else
   bad "analysis collector"
 fi
 
+if bash "$SCRIPTS/tests/test_new_scripts_sh.sh"; then
+  ok "new-interview/new-spec scripts resolve sessions and pass the baseline"
+else
+  bad "new-interview/new-spec scripts"
+fi
+
 # shared scripts runbook: every batch lifecycle command is documented
 for cmd in add run report retry; do
   grep -q "batch-specs.sh $cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Sanity tests for new-interview.sh / new-spec.sh (standing rule: tests before ship).
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPTS="$(dirname "$HERE")"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+PASS=0; FAIL=0
+ok()   { PASS=$((PASS+1)); echo "ok - $1"; }
+bad()  { FAIL=$((FAIL+1)); echo "FAIL - $1"; }
+
+# Fake require-root: stub repos, two interview sessions, a stub `python` that
+# just echoes its arguments (no real LLM calls in a shell test).
+ROOT="$TMP/require"
+IE="$ROOT/interview-engine"; SG="$ROOT/spec-generator"; APP="$ROOT/vmodel-spec-app"
+mkdir -p "$IE/out/20260910-203404-7bd9" "$IE/out/20260912-201837-bd17" "$SG" "$APP"
+printf '{}' > "$IE/out/20260910-203404-7bd9/intent_model.json"
+printf '{}' > "$IE/out/20260912-201837-bd17/intent_model.json"
+touch -t 202609100000 "$IE/out/20260910-203404-7bd9"   # distinct mtimes: ls -t must pick the newer
+touch -t 202609120000 "$IE/out/20260912-201837-bd17"
+printf '{"baseline_id":"b"}' > "$APP/system-baseline.json"
+BIN="$TMP/bin"; mkdir -p "$BIN"
+cat > "$BIN/python" <<'SH'
+#!/usr/bin/env bash
+echo "PYTHON-CALLED: $*"
+SH
+chmod +x "$BIN/python"
+export PATH="$BIN:$PATH"
+
+# new-spec.sh with no args picks the NEWEST session and passes the baseline.
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 2>&1)"
+echo "$OUT" | grep -q 'session 20260912-201837-bd17' && ok "new-spec defaults to the newest session" || bad "new-spec newest session"
+echo "$OUT" | grep -q -- "--system-baseline $APP/system-baseline.json" && ok "new-spec passes --system-baseline" || bad "new-spec baseline flag"
+echo "$OUT" | grep -q "spec_generator.cli $IE/out/20260912-201837-bd17/intent_model.json" && ok "new-spec targets the intent model" || bad "new-spec intent path"
+
+# Explicit session id wins.
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260910-203404-7bd9 2>&1)"
+echo "$OUT" | grep -q 'session 20260910-203404-7bd9' && ok "new-spec accepts an explicit session" || bad "new-spec explicit session"
+
+# Missing intent model is a human-readable error, not a traceback.
+mkdir -p "$IE/out/20260913-090000-ffff"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260913-090000-ffff 2>&1)" && bad "new-spec missing intent exits non-zero" || true
+echo "$OUT" | grep -q 'no approved intent model' && ok "new-spec missing intent is human-readable" || bad "new-spec missing intent message"
+
+# No sessions at all: clear error pointing at new-interview.sh.
+rm -rf "$IE/out"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 2>&1)" && bad "new-spec empty out/ exits non-zero" || true
+echo "$OUT" | grep -q 'new-interview.sh first' && ok "new-spec with no sessions points at new-interview.sh" || bad "new-spec no-session message"
+
+# Usage errors.
+bash "$SCRIPTS/new-interview.sh" >/dev/null 2>&1 && bad "new-interview without args exits non-zero" || ok "new-interview requires an idea or --session"
+OUT="$(bash "$SCRIPTS/new-interview.sh" 2>&1)"
+echo "$OUT" | grep -q 'usage:' && ok "new-interview usage is printed" || bad "new-interview usage text"
+
+# Missing baseline is caught before any model call.
+rm "$APP/system-baseline.json"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260910-203404-7bd9 2>&1)" && bad "new-spec missing baseline exits non-zero" || true
+echo "$OUT" | grep -q 'system baseline not found' && ok "new-spec missing baseline is human-readable" || bad "new-spec baseline message"
+
+# Both scripts and run-full-flow.sh are valid bash (3.2-compatible syntax).
+for f in new-interview.sh new-spec.sh run-full-flow.sh; do
+  bash -n "$SCRIPTS/$f" && ok "$f parses" || bad "$f syntax"
+done
+# run-full-flow.sh passes the baseline to spec-generator too.
+grep -q -- '--system-baseline "$BASELINE" --review' "$SCRIPTS/run-full-flow.sh" && ok "run-full-flow passes --system-baseline" || bad "run-full-flow baseline flag"
+
+echo "$PASS passed, $FAIL failed"
+[ "$FAIL" -eq 0 ]

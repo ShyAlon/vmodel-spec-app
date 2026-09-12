@@ -47,8 +47,10 @@ fi
 # reject) read from the terminal.
 echo
 echo "== spec generation for session $SESSION (review gates on) =="
+BASELINE="$REQUIRE_ROOT/vmodel-spec-app/system-baseline.json"
+[ -f "$BASELINE" ] || { echo "error: system baseline not found at $BASELINE" >&2; exit 1; }
 cd "$SG"
-python -m spec_generator.cli "$INTENT" --review
+python -m spec_generator.cli "$INTENT" --system-baseline "$BASELINE" --review
 
 # Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
 # human-readable, stable default so this handoff points to the resumable run.
@@ -60,4 +62,4 @@ fi
 
 echo
 echo "Done. Artifacts: $REQUIRE_ROOT/artifacts/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
-echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --from <stage>"
+echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --system-baseline $BASELINE --from <stage>"

@@ -162,6 +162,20 @@ scripts/batch-specs.sh --manifest batches/checkout.json run
 scripts/batch-specs.sh --manifest batches/checkout.json report
 ```
 
+## One new interview, one new spec bundle
+
+Two single-purpose commands for the from-zero flow (fresh session, fresh
+timestamped artifacts - nothing reused):
+
+```bash
+cd ~/development/require/vmodel-spec-app
+scripts/new-interview.sh "a marketplace for surf lessons in Tel Aviv"
+scripts/new-spec.sh            # auto-picks the newest interview session
+scripts/new-spec.sh <session>  # or name one explicitly
+```
+
+Resume an interrupted interview with `scripts/new-interview.sh --session <id>`.
+
 ## Full interactive flow
 
 Runs interview-engine and, after approval, spec-generator with review gates:
