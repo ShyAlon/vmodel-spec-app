@@ -38,10 +38,22 @@ failure.
    ADR slots. One shallow-schema call fills each slot: one stack entry, one
    component responsibility, one ADR body, one non-functional position.
    References are enum-constrained to code-computed truth (canonical refs,
-   real requirement ids, real repo names, declared departures), so the
-   model cannot cite what does not exist. Code assigns ADR ids, wires each
-   departure to its authorizing ADR, assembles the contract artifact, and
-   runs the unchanged whole-architecture semantic gate on the result.
+   real requirement ids, real repo names), so the model cannot cite what
+   does not exist. Code assigns ADR ids, wires each departure to its
+   authorizing ADR, assembles the contract artifact, and runs the unchanged
+   whole-architecture semantic gate on the result.
+
+   Hardened the same day after the first live acceptance run: required
+   MIGRATION ADR slots are pipeline-GENERATED, one per declared departure -
+   they are not part of the model's ADR plan at all. phi4 passed every
+   per-slot call but its ADR plan forgot to authorize `stack:ci_tool`
+   (a `ci_tool-absence` slot with `migration:false`). Asking the model to
+   enumerate its own mechanical obligations is the same failure class as
+   the parallel maps: code computes the departures, so code emits those
+   slots. The model's plan schema carries ONLY optional design decisions
+   ({slug}); `migration`/`authorizes` on a model slot fail loudly as
+   pipeline-owned. Regression: the exact ci_tool case runs end to end in
+   `test_architecture_micro_pipeline.py`.
 
 3. **Per-slot partial persistence.** Completed slots land in
    `architecture.partial.json` the moment they close; a crash or a
