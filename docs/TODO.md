@@ -52,3 +52,26 @@ belong here.
    - unverified" at the gate. Once retrieval (item 1) lands, driver
    reasons gain citations and the honesty gap closes at the source.
    *Re-open trigger:* ADR-0021 approved AND item 1 scheduled.
+
+5. **FAST experiment tier: recorded model fixtures (2026-09-13, three-speed design).**
+   Replay canned model responses so pipeline-logic tests run in seconds with
+   no model at all - CI-deterministic. The per-stage grammars and contract
+   validators already exist; the work is capturing representative responses
+   (SPEC_GENERATOR_LOG_RAW=1 gives byte-exact material) and a replay shim.
+   *Re-open trigger:* the next pipeline-logic bug that only a full phi4 run
+   catches, or when MEDIUM-tier runs become the bottleneck in the loop.
+
+6. **Review-stage time cuts (2026-09-13).**
+   The review double-pass was ~1.4h of the original 9.5h night. Review
+   surgical fixes only, or per-item review instead of whole-bundle review.
+   *Re-open trigger:* the next full run where review exceeds ~25% of wall
+   time, or Shy schedules it.
+
+7. **Smaller-model routing for mechanical stages (2026-09-13).**
+   SPEC_GENERATOR_MODEL_* per-stage routing exists; tests/items fills are
+   more mechanical than architecture and may run a smaller/faster local
+   model at equal quality. Measure with the MEDIUM tier before adopting:
+   compare first-pass rate and retries per stage across routings.
+   *Re-open trigger:* the first experiment report showing a smaller model
+   holding first-pass rate on tests/items, or a full run where tests/items
+   exceed ~50% of wall time.

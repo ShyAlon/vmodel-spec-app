@@ -244,3 +244,23 @@ bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts spec-generator/arti
 
 The bundle lands next to the run as `<artifacts-dir>-analysis-<timestamp>.tar.gz`.
 Binary run state (`checkpoints.sqlite`) is excluded by design.
+
+## Experiments (MEDIUM speed tier)
+
+Scope-capped end-to-end smoke runs, minutes instead of hours, with a
+per-item quality report at the end:
+
+```bash
+scripts/experiments/run-smoke.sh                                  # fixture intent, default caps
+scripts/experiments/run-smoke.sh --cap-needs 2 --cap-stack 4 --cap-tests 6
+scripts/experiments/run-smoke.sh --intent <intent_model.json>     # a real interview's intent
+```
+
+Caps resolve: flag > shared .env (VMODEL_CAP_NEEDS / VMODEL_CAP_STACK_SLOTS /
+VMODEL_CAP_TESTS) > defaults (3/6/12). The script exports caps for its own
+process only and NEVER writes the shared .env - a real run cannot inherit an
+experiment's scope. Bundles land in artifacts/experiment-<ts>/, clearly
+separate from real product bundles, and include llm-calls.jsonl so the
+closing report shows first-pass rate, retries, provider errors, stage
+timings and cost. Compare experiment runs on those numbers; validate real
+conclusions with an uncapped FULL run.

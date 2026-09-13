@@ -160,6 +160,12 @@ else
   bad "new-interview/new-spec scripts"
 fi
 
+if bash "$SCRIPTS/tests/test_experiments_sh.sh"; then
+  ok "experiments scripts"
+else
+  bad "experiments scripts"
+fi
+
 # shared scripts runbook: every batch lifecycle command is documented
 for cmd in add run report retry; do
   grep -q "batch-specs.sh $cmd" "$SCRIPTS/README.md" || bad "scripts README documents batch $cmd"

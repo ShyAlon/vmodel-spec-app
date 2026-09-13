@@ -1,0 +1,18 @@
+{
+  "contract_version": "0.13.0",
+  "session_id": "experiment-smoke",
+  "problem_statement": "A tiny personal reading-list tracker: save articles, mark them read, get a weekly digest.",
+  "target_users": ["individual readers"],
+  "core_value_proposition": "Never lose an article you meant to read.",
+  "stakeholder_needs": [
+    {"contract_version": "0.13.0", "need_id": "SN-1", "statement": "Save an article link with one tap.", "kind": "functional", "source_turns": [1]},
+    {"contract_version": "0.13.0", "need_id": "SN-2", "statement": "Mark saved articles as read.", "kind": "functional", "source_turns": [2]},
+    {"contract_version": "0.13.0", "need_id": "SN-3", "statement": "Receive a weekly digest of unread articles.", "kind": "functional", "source_turns": [3]}
+  ],
+  "in_scope": ["saving links", "read/unread state", "weekly digest email"],
+  "out_of_scope": ["social features", "article full-text extraction"],
+  "external_integrations": [],
+  "constraints": [],
+  "open_questions": [],
+  "source_turns": {}
+}
