@@ -15,7 +15,9 @@ ROOT="$TMP/require"
 IE="$ROOT/interview-engine"; SG="$ROOT/spec-generator"; APP="$ROOT/vmodel-spec-app"
 mkdir -p "$IE/out/20260910-203404-7bd9" "$IE/out/20260912-201837-bd17" "$SG" "$APP"
 printf '{}' > "$IE/out/20260910-203404-7bd9/intent_model.json"
+printf '{}' > "$IE/out/20260910-203404-7bd9/conops.json"
 printf '{}' > "$IE/out/20260912-201837-bd17/intent_model.json"
+printf '{}' > "$IE/out/20260912-201837-bd17/conops.json"
 touch -t 202609100000 "$IE/out/20260910-203404-7bd9"   # distinct mtimes: ls -t must pick the newer
 touch -t 202609120000 "$IE/out/20260912-201837-bd17"
 printf '{"baseline_id":"b"}' > "$APP/system-baseline.json"
@@ -30,8 +32,8 @@ export PATH="$BIN:$PATH"
 # new-spec.sh with no args picks the NEWEST session and passes the baseline.
 OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" --baseline "$APP/system-baseline.json" 2>&1)"
 echo "$OUT" | grep -q 'session 20260912-201837-bd17' && ok "new-spec defaults to the newest session" || bad "new-spec newest session"
-echo "$OUT" | grep -q -- "--system-baseline $APP/system-baseline.json" && ok "new-spec passes --system-baseline" || bad "new-spec baseline flag"
-echo "$OUT" | grep -q "spec_generator.cli $IE/out/20260912-201837-bd17/intent_model.json" && ok "new-spec targets the intent model" || bad "new-spec intent path"
+echo "$OUT" | grep -q -- "--conops $IE/out/20260912-201837-bd17/conops.json --system-baseline $APP/system-baseline.json" && ok "new-spec passes --system-baseline" || bad "new-spec baseline flag"
+echo "$OUT" | grep -q "spec_generator.cli $IE/out/20260912-201837-bd17/intent_model.json --conops $IE/out/20260912-201837-bd17/conops.json" && ok "new-spec targets the intent model" || bad "new-spec intent path"
 
 # Explicit session id wins.
 OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260910-203404-7bd9 --baseline "$APP/system-baseline.json" 2>&1)"
@@ -41,6 +43,12 @@ echo "$OUT" | grep -q 'session 20260910-203404-7bd9' && ok "new-spec accepts an 
 mkdir -p "$IE/out/20260913-090000-ffff"
 OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260913-090000-ffff --baseline "$APP/system-baseline.json" 2>&1)" && bad "new-spec missing intent exits non-zero" || true
 echo "$OUT" | grep -q 'no approved intent model' && ok "new-spec missing intent is human-readable" || bad "new-spec missing intent message"
+
+# Intent without its paired Concept of Operations fails before spec generation.
+rm "$IE/out/20260910-203404-7bd9/conops.json"
+OUT="$(REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/new-spec.sh" 20260910-203404-7bd9 --baseline "$APP/system-baseline.json" 2>&1)" && bad "new-spec missing CONOPS exits non-zero" || true
+echo "$OUT" | grep -q 'no approved Concept of Operations' && ok "missing CONOPS is human-readable" || bad "missing CONOPS message"
+printf '{}' > "$IE/out/20260910-203404-7bd9/conops.json"
 
 # No sessions at all: clear error pointing at new-interview.sh.
 rm -rf "$IE/out"
@@ -62,7 +70,7 @@ for f in new-interview.sh new-spec.sh run-full-flow.sh; do
   bash -n "$SCRIPTS/$f" && ok "$f parses" || bad "$f syntax"
 done
 # run-full-flow.sh passes the baseline to spec-generator too.
-grep -q -- '--system-baseline "$BASELINE" --review' "$SCRIPTS/run-full-flow.sh" && ok "run-full-flow passes --system-baseline" || bad "run-full-flow baseline flag"
+grep -q -- '--conops "$CONOPS" --system-baseline "$BASELINE" --review' "$SCRIPTS/run-full-flow.sh" && ok "run-full-flow passes --system-baseline" || bad "run-full-flow baseline flag"
 
 # --- explicit baseline choice (2026-09-12 review): a new product must never
 # silently inherit the generator's own baseline ---
@@ -70,9 +78,11 @@ grep -q -- '--system-baseline "$BASELINE" --review' "$SCRIPTS/run-full-flow.sh" 
 # fixtures (an earlier test emptied out/)
 mkdir -p "$IE/out/20260910-203404-7bd9" "$IE/out/20260912-201837-bd17" "$SG/examples" "$APP"
 printf '{}' > "$IE/out/20260910-203404-7bd9/intent_model.json"
+printf '{}' > "$IE/out/20260910-203404-7bd9/conops.json"
 printf '{}' > "$IE/out/20260912-201837-bd17/intent_model.json"
+printf '{}' > "$IE/out/20260912-201837-bd17/conops.json"
 touch -t 202609100000 "$IE/out/20260910-203404-7bd9"; touch -t 202609120000 "$IE/out/20260912-201837-bd17"
-printf '{"contract_version":"0.13.0","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' > "$SG/examples/system-baseline.greenfield.json"
+printf '{"contract_version":"0.14.1","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' > "$SG/examples/system-baseline.greenfield.json"
 printf '{"baseline_id":"generator"}' > "$APP/system-baseline.json"
 
 # no flag at all: rejected with a human-readable choice, even though the

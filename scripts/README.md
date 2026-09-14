@@ -170,6 +170,7 @@ timestamped artifacts - nothing reused):
 ```bash
 cd ~/development/require/vmodel-spec-app
 scripts/new-interview.sh "a marketplace for surf lessons in Tel Aviv"
+# Interview produces paired Intent Model + Concept of Operations artifacts.
 scripts/new-spec.sh --greenfield                       # a NEW product (auto-picks the newest session)
 scripts/new-spec.sh <session> --greenfield             # name the session explicitly
 scripts/new-spec.sh --baseline vmodel-spec-app/system-baseline.json   # the V-model system itself
@@ -180,7 +181,7 @@ other system's baseline produces a grounded-but-wrong architecture.
 --greenfield materializes a per-session greenfield baseline next to the
 session's intent model.
 
-Resume an interrupted interview with `scripts/new-interview.sh --session <id>`.
+Resume an interrupted interview or Concept of Operations decision with `scripts/new-interview.sh --session <id>`. The Concept of Operations stage compares product concepts and records the founder's explicit choice in `conops.json`; `new-spec.sh` always passes that artifact downstream.
 
 ## Full interactive flow
 

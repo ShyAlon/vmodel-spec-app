@@ -13,7 +13,7 @@ bad()  { FAIL=$((FAIL+1)); echo "FAIL - $1"; }
 # shared .env, and a stub `python` that echoes args AND the cap env it sees.
 ROOT="$TMP/require"; SG="$ROOT/spec-generator"
 mkdir -p "$SG/examples" "$SG/examples"
-printf '{"contract_version":"0.13.0","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' \
+printf '{"contract_version":"0.14.1","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' \
   > "$SG/examples/system-baseline.greenfield.json"
 printf 'VMODEL_CAP_NEEDS=9\n' > "$ROOT/.env"
 INTENT="$TMP/intent.json"; printf '{"session_id":"smoke"}' > "$INTENT"

@@ -74,7 +74,7 @@ REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai </dev/null >/dev/nul
 # unknown provider fails loudly
 mkdir -p "$ROOT/vmodel-spec-app" "$ROOT/spec-generator/examples"
 printf '{"baseline_id":"test"}' > "$ROOT/vmodel-spec-app/system-baseline.json"
-printf '{"contract_version":"0.13.0","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' \
+printf '{"contract_version":"0.14.1","baseline_id":"tpl","system_name":"tpl","mode":"greenfield","repositories":[],"immutable_decisions":[]}' \
   > "$ROOT/spec-generator/examples/system-baseline.greenfield.json"
 REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" banana >/dev/null 2>&1 && bad "unknown provider rejected" || ok "unknown provider rejected"
 # missing repo is skipped, not fatal
@@ -91,6 +91,7 @@ if [[ "$*" == *"interview_engine.cli"* ]]; then
   mkdir -p "out/$session"
   if [ "${SHIM_NO_APPROVE:-0}" != "1" ]; then
     echo '{"session_id": "'"$session"'"}' > "out/$session/intent_model.json"
+    echo '{"session_id": "'"$session"'"}' > "out/$session/conops.json"
   fi
   echo "session: $session" >&2
 else
@@ -103,7 +104,7 @@ export SHIM_LOG="$TMP/shim.log"
 PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" --baseline "$ROOT/vmodel-spec-app/system-baseline.json" >/dev/null \
   && ok "full flow exits clean" || bad "full flow exits clean"
 grep -q "interview_engine.cli a test idea" "$SHIM_LOG" && ok "interview got the idea" || bad "interview got the idea"
-grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --system-baseline $ROOT/vmodel-spec-app/system-baseline.json --review" "$SHIM_LOG" \
+grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --conops $ROOT/interview-engine/out/20260909-210000-ab12/conops.json --system-baseline $ROOT/vmodel-spec-app/system-baseline.json --review" "$SHIM_LOG" \
   && ok "spec-generator got the captured session's intent model + baseline + --review" || { bad "spec-generator handoff"; cat "$SHIM_LOG"; }
 # unapproved interview (no intent_model.json) stops before spec-generator
 rm -f "$ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json"
@@ -120,7 +121,7 @@ grep -q "interview_engine" "$SHIM_LOG" && bad "interview NOT run without anchor 
 : > "$SHIM_LOG"
 PATH="$BIN:$PATH" REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/run-full-flow.sh" "a test idea" --greenfield >/dev/null \
   && ok "full flow --greenfield exits clean" || bad "full flow --greenfield exits clean"
-grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --system-baseline $ROOT/interview-engine/out/20260909-210000-ab12/greenfield-baseline.json --review" "$SHIM_LOG" \
+grep -q "spec_generator.cli $ROOT/interview-engine/out/20260909-210000-ab12/intent_model.json --conops $ROOT/interview-engine/out/20260909-210000-ab12/conops.json --system-baseline $ROOT/interview-engine/out/20260909-210000-ab12/greenfield-baseline.json --review" "$SHIM_LOG" \
   && ok "spec-generator got the materialized greenfield baseline" || { bad "greenfield handoff"; cat "$SHIM_LOG"; }
 grep -q '"mode": "greenfield"' "$ROOT/interview-engine/out/20260909-210000-ab12/greenfield-baseline.json" \
   && ok "materialized baseline is mode=greenfield" || bad "materialized baseline mode"

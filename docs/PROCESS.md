@@ -22,10 +22,13 @@ founder sentence
 +-------------------------------------------------------------------------+
    |
    v   out/<session>/intent_model.json   (IntentModel contract)
+   v   Concept of Operations stage: stakeholder context + operational scenarios
+       + explicit founder concept comparison/decision
+   v   out/<session>/conops.json          (ConOpsDocument contract)
 +---------------------------- SPEC-GENERATOR ------------------------------+
-| stage 1/6 Formalizing stakeholder needs   SN-* -> StakeholderNeedsSet    |
-| stage 2/6 Authoring the SRS               needs+intent -> SRSDocument    |
-| stage 3/6 Drafting architecture overview  SRS -> ArchitectureOverview    |
+| stage 1/6 Formalizing stakeholder needs   Intent Model + Concept of Operations -> StakeholderNeedsSet |
+| stage 2/6 Authoring the SRS               needs + Intent Model + Concept of Operations -> SRSDocument |
+| stage 3/6 Drafting architecture overview  SRS + Concept of Operations -> ArchitectureOverview |
 | stage 4/6 Writing module specs            SRS+arch -> ItemSpec[]         |
 | stage 5/6 Deriving test specifications    SRS+items -> AcceptanceTest[]  |
 | stage 6/6 Cross-checking consistency      fix list, up to 2 rounds       |

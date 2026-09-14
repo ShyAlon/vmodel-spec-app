@@ -64,8 +64,9 @@ fi
 [ -n "$SESSION" ] || { echo "error: no session id found in the interview output (see $LOG)" >&2; exit 1; }
 
 INTENT="$IE/out/$SESSION/intent_model.json"
-if [ ! -f "$INTENT" ]; then
-  echo "Interview for session $SESSION ended without an approved intent model -" >&2
+CONOPS="$IE/out/$SESSION/conops.json"
+if [ ! -f "$INTENT" ] || [ ! -f "$CONOPS" ]; then
+  echo "Interview for session $SESSION ended without an approved Intent Model and Concept of Operations -" >&2
   echo "nothing was generated. Resume it with: $0 --session $SESSION" >&2
   exit 1
 fi
@@ -90,7 +91,7 @@ fi
 [ -f "$BASELINE" ] || { echo "error: system baseline not found at $BASELINE" >&2; exit 1; }
 echo "== baseline: $BASELINE =="
 cd "$SG"
-python -m spec_generator.cli "$INTENT" --system-baseline "$BASELINE" --review
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review
 
 # Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
 # human-readable, stable default so this handoff points to the resumable run.
@@ -102,4 +103,4 @@ fi
 
 echo
 echo "Done. Artifacts: $REQUIRE_ROOT/artifacts/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
-echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --system-baseline $BASELINE --from <stage>"
+echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --conops $CONOPS --system-baseline $BASELINE --from <stage>"

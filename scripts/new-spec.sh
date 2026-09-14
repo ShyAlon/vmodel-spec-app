@@ -52,7 +52,10 @@ if [ -z "$SESSION" ]; then
 fi
 
 INTENT="$IE/out/$SESSION/intent_model.json"
+CONOPS="$IE/out/$SESSION/conops.json"
 [ -f "$INTENT" ] || { echo "error: no approved intent model at $INTENT" >&2
+  echo "Resume the interview with: scripts/new-interview.sh --session $SESSION" >&2; exit 1; }
+[ -f "$CONOPS" ] || { echo "error: no approved Concept of Operations at $CONOPS" >&2
   echo "Resume the interview with: scripts/new-interview.sh --session $SESSION" >&2; exit 1; }
 
 if [ "$GREENFIELD" -eq 1 ]; then
@@ -77,8 +80,8 @@ export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
 echo "== spec generation for session $SESSION =="
 echo "== baseline: $BASELINE =="
 cd "$SG"
-python -m spec_generator.cli "$INTENT" --system-baseline "$BASELINE"
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE"
 
 echo
 echo "Done. Bundle: newest directory under $REQUIRE_ROOT/artifacts/ (printed above)."
-echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --system-baseline $BASELINE --from <stage>"
+echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --conops $CONOPS --system-baseline $BASELINE --from <stage>"

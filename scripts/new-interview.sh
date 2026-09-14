@@ -5,9 +5,9 @@
 #   scripts/new-interview.sh --session <id>    # resume an interrupted interview
 #
 # Interactive: the engine asks, you answer, then an approve gate renders the
-# intent model. Artifacts land in interview-engine/out/<session>/ (timestamp-
-# hash id like 20260912-201837-bd17): intent_model.json, intent_model.md,
-# usage.jsonl. Nothing is reused from older sessions.
+# Intent Model and Concept of Operations. Artifacts land in interview-engine/out/<session>/
+# (timestamp-hash id like 20260912-201837-bd17): intent_model.json/.md,
+# conops.json/.md, usage.jsonl. Nothing is reused from older sessions.
 set -euo pipefail
 
 [ $# -ge 1 ] || { echo "usage: $0 \"<product idea>\" | --session <id>" >&2; exit 1; }
@@ -26,14 +26,15 @@ cd "$IE"
 python -m interview_engine.cli "$@" 2>&1 | tee "$LOG"
 
 SESSION="$(grep -m1 -oE 'session: [A-Za-z0-9-]+' "$LOG" | awk '{print $2}' || true)"
-if [ -n "$SESSION" ] && [ -f "$IE/out/$SESSION/intent_model.json" ]; then
+if [ -n "$SESSION" ] && [ -f "$IE/out/$SESSION/intent_model.json" ] && [ -f "$IE/out/$SESSION/conops.json" ]; then
   echo
   echo "Interview approved. Session: $SESSION"
-  echo "Intent model: $IE/out/$SESSION/intent_model.json"
+  echo "Intent Model: $IE/out/$SESSION/intent_model.json"
+  echo "Concept of Operations: $IE/out/$SESSION/conops.json"
   echo "Next: scripts/new-spec.sh            (auto-picks this newest session)"
 elif [ -n "$SESSION" ]; then
   echo
-  echo "Interview ended without an approved intent model." >&2
+  echo "Interview ended without an approved Intent Model and Concept of Operations." >&2
   echo "Resume it with: $0 --session $SESSION" >&2
   exit 1
 fi
