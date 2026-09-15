@@ -3,7 +3,8 @@
 #
 #   scripts/run-full-flow.sh "a marketplace for surf lessons in Tel Aviv" --greenfield
 #   scripts/run-full-flow.sh "improve the spec pipeline" --baseline vmodel-spec-app/system-baseline.json
-#   scripts/run-full-flow.sh --session <id> --greenfield     # resume an interrupted interview first
+#   scripts/run-full-flow.sh --session <id> --greenfield     # resume an interrupted interview/spec run
+#   scripts/run-full-flow.sh --session <id> --greenfield --fresh-spec  # keep approved interview; new spec generation
 #
 # Runs the interview (interactive: Q&A + the approve gate), captures the
 # session id it prints, then runs spec-generator against that session's
@@ -13,7 +14,7 @@
 # architecture (2026-09-12 review).
 set -euo pipefail
 
-usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>)" >&2; exit 1; }
+usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>) [--fresh-spec]" >&2; exit 1; }
 [ $# -ge 1 ] || usage
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,11 +28,13 @@ SESSION=""
 IDEA_ARGS=()
 BASELINE=""
 GREENFIELD=0
+FRESH_SPEC=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --session|-s) SESSION="${2:?--session needs an id}"; shift 2 ;;
     --greenfield) GREENFIELD=1; shift ;;
     --baseline)   BASELINE="${2:?--baseline needs a path}"; shift 2 ;;
+    --fresh-spec) FRESH_SPEC=1; shift ;;
     -*)           usage ;;
     *)            IDEA_ARGS+=("$1"); shift ;;
   esac
@@ -44,6 +47,7 @@ done
   exit 1
 }
 if [ -z "$SESSION" ] && [ ${#IDEA_ARGS[@]} -eq 0 ]; then usage; fi
+[ "$FRESH_SPEC" -eq 1 ] && [ -z "$SESSION" ] && { echo "error: --fresh-spec requires --session <approved-session-id>" >&2; exit 1; }
 if [ -n "$SESSION" ]; then
   set -- --session "$SESSION"          # resume form for the interview leg
 else
@@ -91,16 +95,29 @@ fi
 [ -f "$BASELINE" ] || { echo "error: system baseline not found at $BASELINE" >&2; exit 1; }
 echo "== baseline: $BASELINE =="
 cd "$SG"
-python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review
+SPEC_OUT_ARGS=()
+if [ "$FRESH_SPEC" -eq 1 ]; then
+  # A fresh spec generation must not collide with the session's stable default
+  # checkpoint. Keep the approved interview artifacts immutable; create a new,
+  # explicit generation directory beside the prior attempt.
+  STAMP="$(date +%Y-%m-%d_%H-%M-%S)"
+  SPEC_OUT="$REQUIRE_ROOT/artifacts/artifacts-${STAMP}-${SESSION}-fresh"
+  [ ! -e "$SPEC_OUT" ] || { echo "error: fresh spec output already exists: $SPEC_OUT" >&2; exit 1; }
+  SPEC_OUT_ARGS=(-o "$SPEC_OUT")
+  echo "== fresh spec generation: $SPEC_OUT =="
+fi
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 
 # Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
 # human-readable, stable default so this handoff points to the resumable run.
-if [[ "$SESSION" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
-  ARTIFACTS="artifacts-${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}_${BASH_REMATCH[4]}-${BASH_REMATCH[5]}-${BASH_REMATCH[6]}"
+if [ "$FRESH_SPEC" -eq 1 ]; then
+  ARTIFACT_PATH="$SPEC_OUT"
+elif [[ "$SESSION" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
+  ARTIFACT_PATH="$REQUIRE_ROOT/artifacts/artifacts-${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}_${BASH_REMATCH[4]}-${BASH_REMATCH[5]}-${BASH_REMATCH[6]}"
 else
-  ARTIFACTS="artifacts directory printed above"
+  ARTIFACT_PATH="artifacts directory printed above"
 fi
 
 echo
-echo "Done. Artifacts: $REQUIRE_ROOT/artifacts/$ARTIFACTS/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
+echo "Done. Artifacts: $ARTIFACT_PATH/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"
 echo "Redo one stage under newer code: python -m spec_generator.cli $INTENT --conops $CONOPS --system-baseline $BASELINE --from <stage>"
