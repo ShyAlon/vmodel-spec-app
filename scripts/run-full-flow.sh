@@ -98,13 +98,16 @@ cd "$SG"
 SPEC_OUT_ARGS=()
 if [ "$FRESH_SPEC" -eq 1 ]; then
   # A fresh spec generation must not collide with the session's stable default
-  # checkpoint. Keep the approved interview artifacts immutable; create a new,
-  # explicit generation directory beside the prior attempt.
-  STAMP="$(date +%Y-%m-%d_%H-%M-%S)"
-  SPEC_OUT="$REQUIRE_ROOT/artifacts/artifacts-${STAMP}-${SESSION}-fresh"
-  [ ! -e "$SPEC_OUT" ] || { echo "error: fresh spec output already exists: $SPEC_OUT" >&2; exit 1; }
+  # checkpoint. Keep the approved interview artifacts immutable; create a stable,
+  # explicit generation directory beside the prior attempt. Repeating the
+  # command resumes this fresh generation after interruption.
+  SPEC_OUT="$REQUIRE_ROOT/artifacts/artifacts-${SESSION}-fresh"
   SPEC_OUT_ARGS=(-o "$SPEC_OUT")
-  echo "== fresh spec generation: $SPEC_OUT =="
+  if [ -e "$SPEC_OUT/checkpoints.sqlite" ]; then
+    echo "== resuming fresh spec generation: $SPEC_OUT =="
+  else
+    echo "== fresh spec generation: $SPEC_OUT =="
+  fi
 fi
 python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 
