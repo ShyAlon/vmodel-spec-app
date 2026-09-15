@@ -14,7 +14,7 @@
 # architecture (2026-09-12 review).
 set -euo pipefail
 
-usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>) [--fresh-spec]" >&2; exit 1; }
+usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>) [--fresh-spec] [--expert-opinion]" >&2; exit 1; }
 [ $# -ge 1 ] || usage
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,12 +31,14 @@ IDEA_ARGS=()
 BASELINE=""
 GREENFIELD=0
 FRESH_SPEC=0
+EXPERT_OPINION=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --session|-s) SESSION="${2:?--session needs an id}"; shift 2 ;;
     --greenfield) GREENFIELD=1; shift ;;
     --baseline)   BASELINE="${2:?--baseline needs a path}"; shift 2 ;;
     --fresh-spec) FRESH_SPEC=1; shift ;;
+    --expert-opinion) EXPERT_OPINION=1; shift ;;
     -*)           usage ;;
     *)            IDEA_ARGS+=("$1"); shift ;;
   esac
@@ -55,6 +57,7 @@ if [ -n "$SESSION" ]; then
 else
   set -- ${IDEA_ARGS[@]+"${IDEA_ARGS[@]}"}
 fi
+[ "$EXPERT_OPINION" -eq 1 ] && set -- "$@" --expert-opinion
 
 # 1. INTERVIEW. stdout+stderr go to the log AND the terminal; stdin stays on
 # the terminal, so the Q&A prompts and the 'Approve this intent model? [y/N]'
@@ -98,6 +101,8 @@ fi
 echo "== baseline: $BASELINE =="
 cd "$SG"
 SPEC_OUT_ARGS=()
+EXPERT_ARGS=()
+[ "$EXPERT_OPINION" -eq 1 ] && EXPERT_ARGS=(--expert-opinion)
 if [ "$FRESH_SPEC" -eq 1 ]; then
   # A fresh spec generation must not collide with the session's stable default
   # checkpoint. Keep the approved interview artifacts immutable; create a stable,
@@ -112,8 +117,8 @@ if [ "$FRESH_SPEC" -eq 1 ]; then
   fi
 fi
 echo "== preflight (zero model calls) =="
-python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review --preflight ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
-python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${EXPERT_ARGS[@]+"${EXPERT_ARGS[@]}"} --preflight ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${EXPERT_ARGS[@]+"${EXPERT_ARGS[@]}"} ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 
 ARTIFACT_PATH="$ARTIFACTS_ROOT/$SESSION/spec"
 if [ "$FRESH_SPEC" -eq 1 ]; then ARTIFACT_PATH="$SPEC_OUT"; fi
