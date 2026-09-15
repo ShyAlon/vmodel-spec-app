@@ -19,6 +19,8 @@ usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | 
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REQUIRE_ROOT="${REQUIRE_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+ARTIFACTS_ROOT="${VMODEL_ARTIFACTS_DIR:-$REQUIRE_ROOT/artifacts}"
+export VMODEL_ARTIFACTS_DIR="$ARTIFACTS_ROOT"
 IE="$REQUIRE_ROOT/interview-engine"
 SG="$REQUIRE_ROOT/spec-generator"
 [ -d "$IE" ] || { echo "error: interview-engine not found at $IE" >&2; exit 1; }
@@ -67,8 +69,8 @@ if [ -z "$SESSION" ]; then
 fi
 [ -n "$SESSION" ] || { echo "error: no session id found in the interview output (see $LOG)" >&2; exit 1; }
 
-INTENT="$IE/out/$SESSION/intent_model.json"
-CONOPS="$IE/out/$SESSION/conops.json"
+INTENT="$ARTIFACTS_ROOT/$SESSION/interview/intent_model.json"
+CONOPS="$ARTIFACTS_ROOT/$SESSION/interview/conops.json"
 if [ ! -f "$INTENT" ] || [ ! -f "$CONOPS" ]; then
   echo "Interview for session $SESSION ended without an approved Intent Model and Concept of Operations -" >&2
   echo "nothing was generated. Resume it with: $0 --session $SESSION" >&2
@@ -82,7 +84,7 @@ echo "== spec generation for session $SESSION (review gates on) =="
 if [ "$GREENFIELD" -eq 1 ]; then
   TEMPLATE="$SG/examples/system-baseline.greenfield.json"
   [ -f "$TEMPLATE" ] || { echo "error: greenfield template not found at $TEMPLATE" >&2; exit 1; }
-  BASELINE="$IE/out/$SESSION/greenfield-baseline.json"
+  BASELINE="$ARTIFACTS_ROOT/$SESSION/interview/greenfield-baseline.json"
   SESSION="$SESSION" python3 - "$TEMPLATE" "$BASELINE" <<'PY'
 import json, os, sys
 template, out = sys.argv[1], sys.argv[2]
@@ -101,7 +103,7 @@ if [ "$FRESH_SPEC" -eq 1 ]; then
   # checkpoint. Keep the approved interview artifacts immutable; create a stable,
   # explicit generation directory beside the prior attempt. Repeating the
   # command resumes this fresh generation after interruption.
-  SPEC_OUT="$REQUIRE_ROOT/artifacts/artifacts-${SESSION}-fresh"
+  SPEC_OUT="$ARTIFACTS_ROOT/$SESSION/spec-fresh"
   SPEC_OUT_ARGS=(-o "$SPEC_OUT")
   if [ -e "$SPEC_OUT/checkpoints.sqlite" ]; then
     echo "== resuming fresh spec generation: $SPEC_OUT =="
@@ -113,15 +115,8 @@ echo "== preflight (zero model calls) =="
 python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review --preflight ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 
-# Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
-# human-readable, stable default so this handoff points to the resumable run.
-if [ "$FRESH_SPEC" -eq 1 ]; then
-  ARTIFACT_PATH="$SPEC_OUT"
-elif [[ "$SESSION" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})-([0-9]{2})([0-9]{2})([0-9]{2}) ]]; then
-  ARTIFACT_PATH="$REQUIRE_ROOT/artifacts/artifacts-${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]}_${BASH_REMATCH[4]}-${BASH_REMATCH[5]}-${BASH_REMATCH[6]}"
-else
-  ARTIFACT_PATH="artifacts directory printed above"
-fi
+ARTIFACT_PATH="$ARTIFACTS_ROOT/$SESSION/spec"
+if [ "$FRESH_SPEC" -eq 1 ]; then ARTIFACT_PATH="$SPEC_OUT"; fi
 
 echo
 echo "Done. Artifacts: $ARTIFACT_PATH/  (AGENTS.md, srs.md, needs.md, architecture.md, specs/, traceability.json)"

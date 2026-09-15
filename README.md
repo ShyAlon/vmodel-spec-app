@@ -98,3 +98,9 @@ To run against DeepSeek instead of Ollama: skip the `*_MODEL_*` exports and
 dev loop - judge demo quality on the real provider, because the interview and
 the verdicts are the moat.
 
+
+### Unified run artifacts
+
+Every run now lives under one session root: `~/development/require/artifacts/<session>/`.
+Interview files are in `interview/`, the resumable spec bundle is in `spec/`, and `--fresh-spec` uses `spec-fresh/`.
+Migrate legacy runs idempotently with `python3 scripts/migrate-artifacts-layout.py --root ~/development/require`.
