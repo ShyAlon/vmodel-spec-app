@@ -110,7 +110,11 @@ if [ "$FRESH_SPEC" -eq 1 ]; then
   # checkpoint. Keep the approved interview artifacts immutable; create a stable,
   # explicit generation directory beside the prior attempt. Repeating the
   # command resumes this fresh generation after interruption.
-  SPEC_OUT="$ARTIFACTS_ROOT/$SESSION/spec-fresh"
+  if [ "$TEST_ARCHITECTURE" -eq 1 ]; then
+    SPEC_OUT="$ARTIFACTS_ROOT/$SESSION/spec-identity-test"
+  else
+    SPEC_OUT="$ARTIFACTS_ROOT/$SESSION/spec-fresh"
+  fi
   SPEC_OUT_ARGS=(-o "$SPEC_OUT")
   if [ -e "$SPEC_OUT/checkpoints.sqlite" ]; then
     echo "== resuming fresh spec generation: $SPEC_OUT =="
