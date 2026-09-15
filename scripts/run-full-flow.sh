@@ -109,6 +109,8 @@ if [ "$FRESH_SPEC" -eq 1 ]; then
     echo "== fresh spec generation: $SPEC_OUT =="
   fi
 fi
+echo "== preflight (zero model calls) =="
+python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review --preflight ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 python -m spec_generator.cli "$INTENT" --conops "$CONOPS" --system-baseline "$BASELINE" --review ${SPEC_OUT_ARGS[@]+"${SPEC_OUT_ARGS[@]}"}
 
 # Interview-generated session ids begin YYYYMMDD-HHMMSS. Mirror the CLI's
