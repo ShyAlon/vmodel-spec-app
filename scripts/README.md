@@ -226,21 +226,24 @@ scripts/switch-model.sh openai
 ## Collecting run analysis
 
 `collect-analysis.sh` packs one run's analysis data into a single bundle to
-send for review. With no argument it picks the newest COMPLETED run
-(`manifest.json` present) across both roots - the workspace-sibling
-`artifacts/` folder (the default since 2026-09-12) and `spec-generator/`
-(explicit `-o` and pre-change runs); newer stage experiments are skipped with
-a note, and an experiments-only tree falls back to the newest experiment with
-an honest label. Pass `--artifacts <dir>` (or the dir alone) to pick a
-specific run. It includes the LLM call log, usage log, run.log, every stage
-artifact that exists, `specs/`, any `*.partial.json` resume state, and the
-batch report, plus a `MANIFEST.json` saying exactly what was found, included,
-and missing. It prints a one-look summary - run status, per-stage call
-counts, models, wall time, token totals - and the exact bundle path to send:
+send for review. With no argument it selects the newest canonical session by
+its timestamped session id, then requires exactly one completed spec bundle
+(`manifest.json` present) inside it. It never silently substitutes an older
+complete run or a legacy `artifacts-*` export. If the newest session is
+incomplete, or several completed spec variants are plausible, it stops and
+prints the candidates and exact override. Use `--session <id>` to select a
+canonical session deliberately; use `--artifacts <dir>` only for a specific
+legacy run or experiment. It includes the LLM call log, usage log, run.log,
+every stage artifact that exists, `specs/`, any `*.partial.json` resume state,
+and the batch report, plus a `MANIFEST.json` saying exactly what was found,
+included, and missing. It prints the selected session, selection reason,
+status, per-stage call counts, models, wall time, token totals, and exact
+bundle path:
 
 ```bash
 bash vmodel-spec-app/scripts/collect-analysis.sh
-bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts spec-generator/artifacts-2026-09-10_20-55-21
+bash vmodel-spec-app/scripts/collect-analysis.sh --session 20260916-081731-5dd9
+bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts /path/to/exact/run
 ```
 
 The bundle lands next to the run as `<artifacts-dir>-analysis-<timestamp>.tar.gz`.

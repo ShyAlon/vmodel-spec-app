@@ -4,14 +4,14 @@
 # says exactly what was found, what was included, and what was missing.
 #
 #   bash vmodel-spec-app/scripts/collect-analysis.sh
+#   bash vmodel-spec-app/scripts/collect-analysis.sh --session <session-id>
 #   bash vmodel-spec-app/scripts/collect-analysis.sh --artifacts <dir>
 #   bash vmodel-spec-app/scripts/collect-analysis.sh <dir>
 #
-# With no argument it picks the newest COMPLETED run (manifest.json present)
-# across both roots: the workspace-sibling artifacts/ folder (the default
-# since 2026-09-12) and spec-generator/ (explicit -o runs and pre-change
-# runs). Stage experiments (no manifest.json) are skipped with a note unless
-# they are all there is. The bundle lands in spec-generator/ as
+# With no argument it selects the newest canonical session directory by its
+# timestamped session id, then requires exactly one completed spec bundle in
+# that session. It never falls back silently to an older or legacy artifacts-*
+# directory. The bundle lands in spec-generator/ as
 # <artifacts-dir>-analysis-<timestamp>.tar.gz.
 # `zsh collect-analysis.sh` and `sh collect-analysis.sh` override the shebang.
 if [ -z "${BASH_VERSION:-}" ]; then
@@ -34,8 +34,9 @@ fail() { echo "error: $*" >&2; exit 1; }
 usage() {
   cat <<'EOF'
 usage:
-  scripts/collect-analysis.sh                      newest COMPLETED run (manifest.json) across both roots
-  scripts/collect-analysis.sh --artifacts DIR      this specific run directory
+  scripts/collect-analysis.sh                      newest canonical session, if its spec is complete
+  scripts/collect-analysis.sh --session ID         completed spec for this exact session
+  scripts/collect-analysis.sh --artifacts DIR      this specific run directory (legacy/experiment override)
   scripts/collect-analysis.sh DIR                  same, positional
 
 Collects llm-calls.jsonl, usage.jsonl, run.log, the stage artifacts
@@ -47,8 +48,10 @@ EOF
 }
 
 ART=""
+SESSION=""
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
+  --session) SESSION="${2:-}"; [ -n "$SESSION" ] || fail "--session needs a session id" ;;
   --artifacts) ART="${2:-}"; [ -n "$ART" ] || fail "--artifacts needs a directory path" ;;
   "") ;;
   *) ART="$1" ;;
@@ -59,32 +62,43 @@ command -v "$PYTHON_BIN" >/dev/null 2>&1 \
   || fail "python3 not found - the collector needs it to read the run's JSON logs (set COLLECT_ANALYSIS_PYTHON to override)"
 
 if [ -z "$ART" ]; then
-  # Candidate run dirs across both roots, newest first (the analysis bundles
-  # we write are files and must not shadow real runs).
-  CANDS="$({ ls -1dt "$REQUIRE_ROOT"/artifacts/artifacts-* "$SG"/artifacts-* 2>/dev/null || true; } | while IFS= read -r c; do
-           if [ -d "$c" ]; then echo "$c"; fi
-         done)"
-  # A COMPLETED run (manifest.json) outranks a newer stage experiment: a bare
-  # invocation should bundle the real run, not an --only-stage scratchpad
-  # (the 2026-09-12 wrong-bundle round-trip shipped an experiment by mistake).
-  ART=""; SKIPPED=""
-  while IFS= read -r c; do
-    [ -n "$c" ] || continue
-    if [ -f "$c/manifest.json" ]; then ART="$c"; break; fi
-    SKIPPED="${SKIPPED:+$SKIPPED }$(basename "$c")"
-  done <<CANDEOF
-$CANDS
-CANDEOF
-  if [ -n "$ART" ]; then
-    [ -n "$SKIPPED" ] && echo "Auto-detect: skipped stage experiment(s) without manifest.json: $SKIPPED"
+  ROOT="$REQUIRE_ROOT/artifacts"
+  [ -d "$ROOT" ] || fail "canonical artifacts root not found: $ROOT - pass an exact session with --session ID or a directory with --artifacts DIR"
+  if [ -n "$SESSION" ]; then
+    case "$SESSION" in
+      *[!A-Za-z0-9-]*) fail "invalid session id: $SESSION" ;;
+    esac
+    SESSION_DIR="$ROOT/$SESSION"
+    [ -d "$SESSION_DIR" ] || fail "session not found: $SESSION_DIR"
+    WHY="explicit --session $SESSION"
   else
-    ART="$(printf '%s\n' "$CANDS" | head -1)"
-    [ -n "$ART" ] && echo "Note: $(basename "$ART") has no manifest.json - looks like a stage experiment; bundling it anyway."
+    SESSION="$(find "$ROOT" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null       | grep -E '^[0-9]{8}-[0-9]{6}-[0-9a-fA-F]{4,}$' | sort -r | head -1 || true)"
+    [ -n "$SESSION" ] || fail "no canonical session directories found under $ROOT - use --session ID, or --artifacts DIR for a legacy run"
+    SESSION_DIR="$ROOT/$SESSION"
+    WHY="newest canonical session id (timestamp order)"
   fi
-  [ -n "$ART" ] || fail "no artifacts-* directory found under $REQUIRE_ROOT/artifacts or $SG - pass one explicitly: bash scripts/collect-analysis.sh <dir>"
-  echo "Auto-detected artifacts directory: $ART"
+  CANDS=""
+  for d in "$SESSION_DIR"/spec "$SESSION_DIR"/spec-fresh "$SESSION_DIR"/spec-identity-test; do
+    [ -d "$d" ] && [ -f "$d/manifest.json" ] && CANDS="${CANDS}${CANDS:+
+}$d"
+  done
+  COUNT="$(printf '%s
+' "$CANDS" | sed '/^$/d' | wc -l | tr -d ' ')"
+  if [ "$COUNT" -eq 0 ]; then
+    fail "selected session $SESSION ($WHY), but it has no completed spec bundle (manifest.json missing). Do not substitute an older run. Finish/resume that run, or choose deliberately: scripts/collect-analysis.sh --session <id> / --artifacts <dir>"
+  fi
+  if [ "$COUNT" -gt 1 ]; then
+    fail "selected session $SESSION ($WHY), but multiple completed spec bundles are plausible: $(printf '%s' "$CANDS" | tr '
+' ' '). Choose explicitly with --artifacts DIR"
+  fi
+  ART="$CANDS"
+  echo "Selected session: $SESSION"
+  echo "Selection reason: $WHY; exactly one completed spec bundle (manifest.json present)"
+  echo "Selected artifacts directory: $ART"
 else
   [ -d "$ART" ] || fail "artifacts directory not found: $ART"
+  echo "Selected artifacts directory: $ART"
+  echo "Selection reason: explicit --artifacts override"
 fi
 ART="$(cd "$ART" && pwd)"
 NAME="$(basename "$ART")"
