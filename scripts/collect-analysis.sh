@@ -127,11 +127,9 @@ for p in "$ART"/*.partial.json; do
   [ -e "$p" ] || continue
   cp -p "$p" "$WORK/$(basename "$p")"
 done
-for f in batch-report.json batch-report.md; do
-  if [ -f "$APP/$f" ]; then
-    cp -p "$APP/$f" "$WORK/$f"
-  fi
-done
+# A repository-level batch report can describe a different queue/session and
+# must never be smuggled into a single-run analysis bundle. Build the report
+# below from the selected artifact directory itself.
 if [ -f "$ART/checkpoints.sqlite" ]; then
   echo "note: checkpoints.sqlite left out (binary run state, not analysis data)"
 fi
@@ -246,6 +244,43 @@ manifest = {
     "notes": (["checkpoints.sqlite excluded (binary run state, not analysis data)"]
               if (art / "checkpoints.sqlite").exists() else []),
 }
+definition_keys = {"preconditions", "steps", "expected_outcomes", "cleanup", "cases", "execution"}
+requirements = (srs.get("functional") or []) + (srs.get("non_functional") or [])
+criteria = [c for r in requirements for c in (r.get("acceptance") or [])]
+req_ids = {r.get("requirement_id") for r in requirements}
+covered = {rid for item in (items or []) for rid in (item.get("requirement_ids") or [])}
+criterion_ids = {c.get("criterion_id") for c in criteria}
+tested = {t.get("criterion_id") for t in (tests or []) if t.get("criterion_id")}
+invalid = [t.get("test_id") for t in (tests or [])
+           if not isinstance(t.get("definition"), dict) or set(t["definition"]) != definition_keys]
+report = {
+    "version": 1,
+    "generated_at": dt.datetime.now().isoformat(timespec="seconds"),
+    "source_artifacts_dir": name,
+    "session_id": srs.get("session_id"),
+    "counts": {"requirements": len(requirements), "acceptance_criteria": len(criteria),
+               "specs": len(items or []), "tests": len(tests or [])},
+    "traceability": {"requirements_without_specs": sorted(req_ids - covered),
+                     "criteria_without_tests": sorted(criterion_ids - tested)},
+    "test_definitions": {"canonical": not invalid, "invalid_test_ids": invalid},
+    "usage": {"calls": len(usage), "prompt_tokens": prompt_tok,
+              "completion_tokens": completion_tok, "cost_usd": round(cost, 6)},
+}
+(work / "batch-report.json").write_text(json.dumps(report, indent=2))
+(work / "batch-report.md").write_text(
+    "# Selected bundle report\n\n"
+    f"- Source: `{name}`\n- Session: `{report['session_id']}`\n"
+    f"- Requirements: {report['counts']['requirements']}\n"
+    f"- Acceptance criteria: {report['counts']['acceptance_criteria']}\n"
+    f"- Specs: {report['counts']['specs']}\n- Tests: {report['counts']['tests']}\n"
+    f"- Canonical test definitions: {'yes' if not invalid else 'NO'}\n"
+    f"- Requirements without specs: {report['traceability']['requirements_without_specs'] or 'none'}\n"
+    f"- Criteria without tests: {report['traceability']['criteria_without_tests'] or 'none'}\n"
+    f"- Cost: ${cost:.6f}\n"
+)
+manifest["included"] = [{"path": f, "bytes": p.stat().st_size}
+                        for p in sorted(work.rglob("*")) if p.is_file()
+                        for f in [str(p.relative_to(work))]]
 (work / "MANIFEST.json").write_text(json.dumps(manifest, indent=2))
 
 print("")
