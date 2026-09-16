@@ -61,21 +61,31 @@ else
 fi
 [ "$EXPERT_OPINION" -eq 1 ] && set -- "$@" --expert-opinion
 
-# 1. INTERVIEW. stdout+stderr go to the log AND the terminal; stdin stays on
-# the terminal, so the Q&A prompts and the 'Approve this intent model? [y/N]'
-# gate stay fully interactive.
-LOG="$(mktemp "${TMPDIR:-/tmp}/vmodel-interview.XXXXXX")"
-echo "== interview (log: $LOG) =="
+# 1. INTERVIEW. The app mirrors stderr to a plain run.log while preserving
+# terminal TTY/color and interactive approval prompts. Capture the session via
+# the newly created artifacts directory, not by piping through tee.
+BEFORE="$(mktemp "${TMPDIR:-/tmp}/vmodel-interview-before.XXXXXX")"
+find "$ARTIFACTS_ROOT" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort > "$BEFORE" || true
+echo "== interview (plain log is printed by the app) =="
 cd "$IE"
-python -m interview_engine.cli "$@" 2>&1 | tee "$LOG"
+python -m interview_engine.cli "$@"
 
 if [ -z "$SESSION" ]; then
-  SESSION="$(grep -m1 -oE 'session: [A-Za-z0-9-]+' "$LOG" | awk '{print $2}' || true)"
+  SESSION="$(comm -13 "$BEFORE" <(find "$ARTIFACTS_ROOT" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort) | tail -1 | xargs basename 2>/dev/null || true)"
 fi
-[ -n "$SESSION" ] || { echo "error: no session id found in the interview output (see $LOG)" >&2; exit 1; }
+rm -f "$BEFORE"
+# Compatibility for older interview-engine layouts and script test shims.
+if [ -z "$SESSION" ]; then
+  SESSION="$(ls -t "$IE/out" 2>/dev/null | head -1 || true)"
+fi
+[ -n "$SESSION" ] || { echo "error: no session id or new interview artifacts found" >&2; exit 1; }
 
 INTENT="$ARTIFACTS_ROOT/$SESSION/interview/intent_model.json"
 CONOPS="$ARTIFACTS_ROOT/$SESSION/interview/conops.json"
+if [ ! -f "$INTENT" ] && [ -f "$IE/out/$SESSION/intent_model.json" ]; then
+  INTENT="$IE/out/$SESSION/intent_model.json"
+  CONOPS="$IE/out/$SESSION/conops.json"
+fi
 if [ ! -f "$INTENT" ] || [ ! -f "$CONOPS" ]; then
   echo "Interview for session $SESSION ended without an approved Intent Model and Concept of Operations -" >&2
   echo "nothing was generated. Resume it with: $0 --session $SESSION" >&2
@@ -89,7 +99,8 @@ echo "== spec generation for session $SESSION (review gates on) =="
 if [ "$GREENFIELD" -eq 1 ]; then
   TEMPLATE="$SG/examples/system-baseline.greenfield.json"
   [ -f "$TEMPLATE" ] || { echo "error: greenfield template not found at $TEMPLATE" >&2; exit 1; }
-  BASELINE="$ARTIFACTS_ROOT/$SESSION/interview/greenfield-baseline.json"
+  INTERVIEW_DIR="$(dirname "$INTENT")"
+  BASELINE="$INTERVIEW_DIR/greenfield-baseline.json"
   SESSION="$SESSION" python3 - "$TEMPLATE" "$BASELINE" <<'PY'
 import json, os, sys
 template, out = sys.argv[1], sys.argv[2]
