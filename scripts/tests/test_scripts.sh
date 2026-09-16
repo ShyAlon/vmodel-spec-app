@@ -22,6 +22,8 @@ want "$SHARED" '^INTERVIEW_ENGINE_MODEL_PROBING=ollama:phi4$' "ollama: interview
 want "$SHARED" '^INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=ollama:phi4$' "ollama: interview tiebreak -> shared"
 want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=ollama:phi4$' "ollama: spec srs -> shared"
 want "$SHARED" '^SPEC_GENERATOR_MODEL_REVIEW=ollama:phi4$' "ollama: spec review -> shared"
+want "$SHARED" '^INTERVIEW_ENGINE_MODEL_EXPERT_OPINION=ollama:phi4$' "ollama: interview expert opinion -> shared"
+want "$SHARED" '^SPEC_GENERATOR_MODEL_EXPERT_OPINION=ollama:phi4$' "ollama: spec expert opinion -> shared"
 want "$SHARED" '^VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE=ollama:phi4$' "ollama: verification judge -> shared"
 want "$SHARED" '^DEEPSEEK_API_KEY=sk-real-key-123$' "migration: repo-local key value preserved into shared"
 ! grep -qE '^SPEC_GENERATOR_MODEL_SRS=' "$ROOT/spec-generator/.env" && ok "migration: managed MODEL_* stripped from repo-local" || bad "migration: managed MODEL_* stripped from repo-local"
@@ -32,6 +34,8 @@ want "$ROOT/spec-generator/.env" '^# my settings$' "migration: unrelated repo-lo
 OUT="$(DEEPSEEK_API_KEY=sk-test-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek)" || bad "deepseek run exits clean"
 want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-flash$' "deepseek: spec srs switched"
 want "$SHARED" '^INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-flash$' "deepseek: interview distillation"
+want "$SHARED" '^INTERVIEW_ENGINE_MODEL_EXPERT_OPINION=deepseek:deepseek-flash$' "deepseek: interview expert opinion"
+want "$SHARED" '^SPEC_GENERATOR_MODEL_EXPERT_OPINION=deepseek:deepseek-flash$' "deepseek: spec expert opinion"
 # DeepSeek override without a code change
 DEEPSEEK_MODEL=deepseek-v4-pro DEEPSEEK_API_KEY=sk-test-PRO REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" deepseek >/dev/null
 want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=deepseek:deepseek-v4-pro$' "deepseek: DEEPSEEK_MODEL override respected"
@@ -55,6 +59,8 @@ want "$SHARED" '^DEEPSEEK_API_KEY=sk-test-CCCC$' "missing key: existing shared .
 # openai: key via env pass-through, default model gpt-5.4-mini
 OUT="$(OPENAI_API_KEY=sk-oai-AAAA REQUIRE_ROOT="$ROOT" bash "$SCRIPTS/switch-model.sh" openai)" || bad "openai run exits clean"
 want "$SHARED" '^SPEC_GENERATOR_MODEL_SRS=openai:gpt-5\.4-mini$' "openai: spec srs switched to default model"
+want "$SHARED" '^INTERVIEW_ENGINE_MODEL_EXPERT_OPINION=openai:gpt-5\.4-mini$' "openai: interview expert opinion"
+want "$SHARED" '^SPEC_GENERATOR_MODEL_EXPERT_OPINION=openai:gpt-5\.4-mini$' "openai: spec expert opinion"
 want "$SHARED" '^INTERVIEW_ENGINE_MODEL_PROBING=openai:gpt-5\.4-mini$' "openai: interview probing"
 want "$SHARED" '^VERIFICATION_LOOP_MODEL_RESIDUE_JUDGE=openai:gpt-5\.4-mini$' "openai: verification judge"
 want "$SHARED" '^OPENAI_API_KEY=sk-oai-AAAA$' "openai: key written to shared"
