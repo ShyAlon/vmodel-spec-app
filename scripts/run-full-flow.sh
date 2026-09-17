@@ -14,7 +14,7 @@
 # architecture (2026-09-12 review).
 set -euo pipefail
 
-usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>) [--fresh-spec] [--expert-opinion] [--test-architecture]" >&2; exit 1; }
+usage() { echo "usage: $0 (\"<product idea>\" | --session <id>) (--greenfield | --baseline <path>) [--new-session] [--fresh-spec] [--expert-opinion] [--test-architecture]" >&2; exit 1; }
 [ $# -ge 1 ] || usage
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +33,7 @@ GREENFIELD=0
 FRESH_SPEC=0
 EXPERT_OPINION=0
 TEST_ARCHITECTURE=0
+NEW_SESSION=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --session|-s) SESSION="${2:?--session needs an id}"; shift 2 ;;
@@ -41,6 +42,7 @@ while [ $# -gt 0 ]; do
     --fresh-spec) FRESH_SPEC=1; shift ;;
     --expert-opinion) EXPERT_OPINION=1; shift ;;
     --test-architecture) TEST_ARCHITECTURE=1; FRESH_SPEC=1; shift ;;
+    --new-session) NEW_SESSION=1; shift ;;
     -*)           usage ;;
     *)            IDEA_ARGS+=("$1"); shift ;;
   esac
@@ -53,6 +55,68 @@ done
   exit 1
 }
 if [ -z "$SESSION" ] && [ ${#IDEA_ARGS[@]} -eq 0 ]; then usage; fi
+
+# A product string normally means "start". Refuse that destructive-looking
+# ambiguity when the exact same idea already has meaningful unfinished work.
+# --new-session is the explicit escape hatch for a deliberate second run.
+if [ -z "$SESSION" ] && [ "$NEW_SESSION" -eq 0 ]; then
+  IDEA_TEXT="${IDEA_ARGS[*]}"
+  MATCH="$({ IDEA_TEXT="$IDEA_TEXT" ARTIFACTS_ROOT="$ARTIFACTS_ROOT" python3 - <<'PYGUARD'
+import json, os, re, sqlite3
+from pathlib import Path
+root=Path(os.environ["ARTIFACTS_ROOT"]); idea=os.environ["IDEA_TEXT"]
+for d in sorted(root.glob("*"), reverse=True):
+    interview=d/"interview"; db=interview/"checkpoints.sqlite"; log=interview/"run.log"
+    if not db.exists(): continue
+    # An abandoned shell created at turn 1 must not shadow a real resumable run.
+    text=log.read_text(errors="ignore") if log.exists() else ""
+    if not re.search(r"^You:\s*\S", text, re.MULTILINE): continue
+    # A fully assembled default spec is complete, not in progress.
+    if (d/"spec"/"manifest.json").exists(): continue
+    found=False
+    try:
+        con=sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+        for table in ("checkpoints", "writes"):
+            try: rows=con.execute(f'SELECT * FROM "{table}"')
+            except sqlite3.Error: continue
+            for row in rows:
+                if any(idea.encode() in bytes(v) for v in row if isinstance(v,(bytes,bytearray))):
+                    found=True; break
+                if any(idea == v for v in row if isinstance(v,str)):
+                    found=True; break
+                if found: break
+            if found: break
+    except sqlite3.Error: pass
+    if not found:
+        # New launcher runs leave an exact-match sidecar, avoiding knowledge of
+        # checkpoint serialization. This does not weaken legacy checkpoint scan.
+        side=interview/"launcher-idea.json"
+        try: found=json.loads(side.read_text()).get("idea") == idea
+        except Exception: pass
+    if found:
+        print(d.name); break
+PYGUARD
+  } 2>/dev/null || true)"
+  if [ -n "$MATCH" ]; then
+    echo "error: this exact product already has an in-progress session: $MATCH" >&2
+    echo "Resume it with:" >&2
+    if [ "$GREENFIELD" -eq 1 ]; then
+      if [ "$EXPERT_OPINION" -eq 1 ]; then
+        echo "  $0 --session $MATCH --greenfield --expert-opinion" >&2
+      else
+        echo "  $0 --session $MATCH --greenfield" >&2
+      fi
+    else
+      if [ "$EXPERT_OPINION" -eq 1 ]; then
+        echo "  $0 --session $MATCH --baseline $BASELINE --expert-opinion" >&2
+      else
+        echo "  $0 --session $MATCH --baseline $BASELINE" >&2
+      fi
+    fi
+    echo "To deliberately start a second run of the same product, add --new-session." >&2
+    exit 2
+  fi
+fi
 [ "$FRESH_SPEC" -eq 1 ] && [ -z "$SESSION" ] && { echo "error: --fresh-spec requires --session <approved-session-id>" >&2; exit 1; }
 if [ -n "$SESSION" ]; then
   set -- --session "$SESSION"          # resume form for the interview leg
@@ -74,6 +138,14 @@ if [ -z "$SESSION" ]; then
   SESSION="$(comm -13 "$BEFORE" <(find "$ARTIFACTS_ROOT" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort) | tail -1 | xargs basename 2>/dev/null || true)"
 fi
 rm -f "$BEFORE"
+if [ ${#IDEA_ARGS[@]} -gt 0 ] && [ -n "$SESSION" ]; then
+  mkdir -p "$ARTIFACTS_ROOT/$SESSION/interview"
+  IDEA_TEXT="${IDEA_ARGS[*]}" python3 - "$ARTIFACTS_ROOT/$SESSION/interview/launcher-idea.json" <<'PYIDEA'
+import json, os, sys
+from pathlib import Path
+Path(sys.argv[1]).write_text(json.dumps({"idea": os.environ["IDEA_TEXT"]}, indent=2))
+PYIDEA
+fi
 # Compatibility for older interview-engine layouts and script test shims.
 if [ -z "$SESSION" ]; then
   SESSION="$(ls -t "$IE/out" 2>/dev/null | head -1 || true)"
