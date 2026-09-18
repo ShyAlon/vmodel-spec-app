@@ -1,0 +1,15 @@
+{
+  "idea": "A web application for families to assign recurring household tasks, attach evidence, and fairly resolve completion disputes.",
+  "answers": [
+    {"keywords": ["user", "who"], "answer": "Parents and teenagers in one household use it. Parents manage membership; everyone can receive and complete tasks."},
+    {"keywords": ["workflow", "happen"], "answer": "A member creates or receives a task, completes it, attaches a photo or note as evidence, and the assigner accepts it or opens a dispute."},
+    {"keywords": ["success", "done", "accept"], "answer": "A task is complete only when required evidence is attached and accepted. Every status change must be visible to the household."},
+    {"keywords": ["recurring", "schedule"], "answer": "Tasks can repeat daily, weekly, or on selected weekdays, with the next occurrence created automatically."},
+    {"keywords": ["permission", "role", "security"], "answer": "Only parents invite or remove members. Members see only their household. Evidence must never be public."},
+    {"keywords": ["scale", "performance", "fast"], "answer": "Support 100 household members and 10,000 tasks per household; normal task pages should load within 2 seconds at p95."},
+    {"keywords": ["integration", "external", "notification"], "answer": "Use email notifications for assignment, overdue tasks, and dispute decisions. No other integration is required for the first release."},
+    {"keywords": ["out of scope", "not build"], "answer": "No payments, rewards marketplace, public social feed, or native mobile app in the first release."},
+    {"keywords": ["technology", "stack"], "answer": "You decide the technical stack, but it must be a browser-based web application."}
+  ],
+  "fallback": "You decide that implementation detail. Keep the first release simple and testable."
+}
