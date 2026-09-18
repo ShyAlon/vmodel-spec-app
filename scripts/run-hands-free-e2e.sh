@@ -3,6 +3,18 @@
 set -euo pipefail
 usage(){ echo "usage: $0 --persona FILE (--greenfield | --baseline FILE) [--interviewee-mode scripted|llm] [--session ID]" >&2; exit 2; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; REQUIRE_ROOT="${REQUIRE_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+# A model switch writes the one shared file. Do not let routing variables
+# inherited from an older shell silently beat it for one child process.
+SHARED_ENV="$REQUIRE_ROOT/.env"
+if [ -f "$SHARED_ENV" ]; then
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    case "$key" in
+      INTERVIEW_ENGINE_MODEL_*|SPEC_GENERATOR_MODEL_*|VERIFICATION_LOOP_MODEL_*)
+        value="${value%\"}"; value="${value#\"}"; value="${value%\'}"; value="${value#\'}"
+        export "$key=$value" ;;
+    esac
+  done < "$SHARED_ENV"
+fi
 ARTIFACTS_ROOT="${VMODEL_ARTIFACTS_DIR:-$REQUIRE_ROOT/artifacts}"; export VMODEL_ARTIFACTS_DIR="$ARTIFACTS_ROOT"
 PERSONA=""; BASELINE=""; GREENFIELD=0; MODE=scripted; SESSION=""
 while [ $# -gt 0 ]; do case "$1" in
