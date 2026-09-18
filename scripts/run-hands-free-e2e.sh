@@ -15,7 +15,8 @@ for d in "$IE" "$SG" "$VL"; do [ -d "$d" ] || { echo "Error: required repository
 mkdir -p "$ARTIFACTS_ROOT"; BEFORE="$(mktemp)"; trap 'rm -f "$BEFORE"' EXIT
 find "$ARTIFACTS_ROOT" -mindepth 1 -maxdepth 1 -type d -print | sort > "$BEFORE" 2>/dev/null || true
 printf 'boundary=hands-free-pipeline phase=interview mode=%s persona=%s decision=start\n' "$MODE" "$PERSONA"
-cd "$IE"; IA=(--interviewee "$PERSONA" --interviewee-mode "$MODE" --auto-approve --expert-opinion)
+cd "$IE"; export PYTHONPATH="$REQUIRE_ROOT/vmodel-contracts/src:$IE/src:$SG/src:$VL/src${PYTHONPATH:+:$PYTHONPATH}"
+IA=(--interviewee "$PERSONA" --interviewee-mode "$MODE" --auto-approve --expert-opinion)
 if [ -n "$SESSION" ]; then python -m interview_engine.cli --session "$SESSION" "${IA[@]}"; else python -m interview_engine.cli "${IA[@]}"; fi
 if [ -z "$SESSION" ]; then SESSION="$(comm -13 "$BEFORE" <(find "$ARTIFACTS_ROOT" -mindepth 1 -maxdepth 1 -type d -print | sort) | tail -1 | xargs basename)"; fi
 [ -n "$SESSION" ] || { echo 'Error: interview produced no session.' >&2; exit 2; }
