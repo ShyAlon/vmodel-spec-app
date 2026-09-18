@@ -98,14 +98,17 @@ migrate_repo_env() {
 # first, then a hidden prompt. The value is only ever written to the shared
 # .env file.
 API_KEY=""
+KEEP_EXISTING_KEY=0
 if [ -n "$KEY_VAR" ]; then
   eval "API_KEY=\"\${$KEY_VAR:-}\""
-  if [ -z "$API_KEY" ]; then
+  if [ -z "$API_KEY" ] && [ -f "$SHARED" ] && grep -qE "^${KEY_VAR}=." "$SHARED"; then
+    KEEP_EXISTING_KEY=1
+    echo "$KEY_VAR: keeping existing shared key"
+  elif [ -z "$API_KEY" ]; then
     read -r -s -p "$1 API key (hidden): " API_KEY; echo
   fi
-  [ -n "$API_KEY" ] || die "no key given - export $KEY_VAR or answer the prompt"
+  [ "$KEEP_EXISTING_KEY" = 1 ] || [ -n "$API_KEY" ] || die "no key given - export $KEY_VAR or answer the prompt"
 fi
-
 echo "Switching all processes to $MODEL (shared config: $SHARED)"
 for repo in interview-engine spec-generator verification-loop; do
   if [ ! -d "$REQUIRE_ROOT/$repo" ]; then
@@ -139,7 +142,7 @@ if ! grep -qE "^VMODEL_LLM_MAX_TOKENS=" "$SHARED" && ! grep -q "^# VMODEL_LLM_MA
     "#VMODEL_LLM_MAX_TOKENS=" >> "$SHARED"
   echo "  - documented VMODEL_LLM_MAX_TOKENS (per-stage defaults; uncomment to cap globally)"
 fi
-if [ -n "$KEY_VAR" ]; then
+if [ -n "$KEY_VAR" ] && [ "$KEEP_EXISTING_KEY" != 1 ]; then
   set_env "$SHARED" "$KEY_VAR" "$API_KEY"
   API_KEY=""  # drop it from the shell as soon as it is on disk
   echo
