@@ -8,8 +8,14 @@ PERSONA=""; BASELINE=""; GREENFIELD=0; MODE=scripted; SESSION=""
 while [ $# -gt 0 ]; do case "$1" in
  --persona) PERSONA="${2:?}";shift 2;; --greenfield) GREENFIELD=1;shift;; --baseline) BASELINE="${2:?}";shift 2;;
  --interviewee-mode) MODE="${2:?}";shift 2;; --session) SESSION="${2:?}";shift 2;; *) usage;; esac; done
-[ -f "$PERSONA" ] || usage; [ "$GREENFIELD" -eq 1 ] && [ -n "$BASELINE" ] && usage
+[ -f "$PERSONA" ] || { echo "Error: persona file not found: $PERSONA" >&2; echo "Likely cause: the path is wrong or the file was not pulled." >&2; echo "Next: pass an existing persona JSON file with --persona." >&2; exit 2; }
+PERSONA="$(cd "$(dirname "$PERSONA")" && pwd)/$(basename "$PERSONA")"
+[ "$GREENFIELD" -eq 1 ] && [ -n "$BASELINE" ] && usage
 [ "$GREENFIELD" -eq 0 ] && [ -z "$BASELINE" ] && usage
+if [ -n "$BASELINE" ]; then
+  [ -f "$BASELINE" ] || { echo "Error: baseline file not found: $BASELINE" >&2; exit 2; }
+  BASELINE="$(cd "$(dirname "$BASELINE")" && pwd)/$(basename "$BASELINE")"
+fi
 IE="$REQUIRE_ROOT/interview-engine"; SG="$REQUIRE_ROOT/spec-generator"; VL="$REQUIRE_ROOT/verification-loop"
 for d in "$IE" "$SG" "$VL"; do [ -d "$d" ] || { echo "Error: required repository missing: $d" >&2; exit 2; }; done
 mkdir -p "$ARTIFACTS_ROOT"; BEFORE="$(mktemp)"; trap 'rm -f "$BEFORE"' EXIT
