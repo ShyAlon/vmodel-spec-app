@@ -20,11 +20,11 @@ def test_driver_shared_config_overrides_stale_inherited_interview_routes(tmp_pat
   (root/repo/"src").mkdir(parents=True)
  persona=root/"persona.json";persona.write_text('{"idea":"x","answers":[]}')
  (root/".env").write_text("\n".join([
-  "INTERVIEW_ENGINE_MODEL_PROBING=deepseek:deepseek-flash",
-  "INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-flash",
-  "INTERVIEW_ENGINE_MODEL_PHRASING=deepseek:deepseek-flash",
-  "INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=deepseek:deepseek-flash",
-  "INTERVIEW_ENGINE_MODEL_EXPERT_OPINION=deepseek:deepseek-flash",
+  "INTERVIEW_ENGINE_MODEL_PROBING=deepseek:deepseek-chat",
+  "INTERVIEW_ENGINE_MODEL_DISTILLATION=deepseek:deepseek-chat",
+  "INTERVIEW_ENGINE_MODEL_PHRASING=deepseek:deepseek-chat",
+  "INTERVIEW_ENGINE_MODEL_SCOPE_TIEBREAK=deepseek:deepseek-chat",
+  "INTERVIEW_ENGINE_MODEL_EXPERT_OPINION=deepseek:deepseek-chat",
  ]))
  pkg=root/"interview-engine/src/interview_engine";pkg.mkdir()
  (pkg/"__init__.py").write_text("")
@@ -34,5 +34,5 @@ def test_driver_shared_config_overrides_stale_inherited_interview_routes(tmp_pat
  assert run.returncode==23
  line=next(x for x in run.stderr.splitlines() if x.startswith("Models:"))
  for stage in ("probing","distillation","conops","phrasing","scope_tiebreak","expert_opinion"):
-  assert f"{stage}=deepseek:deepseek-flash" in line
+  assert f"{stage}=deepseek:deepseek-chat" in line
  assert "ollama" not in line
