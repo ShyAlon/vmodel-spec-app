@@ -2,7 +2,7 @@
 # switch-model.sh - point every process at one LLM via ONE shared config file.
 #
 #   scripts/switch-model.sh ollama     # local, phi4, $0 (the standing default)
-#   scripts/switch-model.sh deepseek   # DeepSeek Chat (deepseek-chat), needs DEEPSEEK_API_KEY
+#   scripts/switch-model.sh deepseek   # DeepSeek V4.1 Flash (deepseek-flash), needs DEEPSEEK_API_KEY
 #   scripts/switch-model.sh openai     # OpenAI gpt-5.4-mini by default, needs OPENAI_API_KEY
 #                                      # override the model without a code change:
 #                                      #   OPENAI_MODEL=gpt-5.4 scripts/switch-model.sh openai
@@ -38,7 +38,7 @@ die() { echo "error: $*" >&2; exit 1; }
 KEY_VAR=""
 case "$1" in
   ollama)   MODEL="ollama:phi4" ;;
-  deepseek) MODEL="deepseek:${DEEPSEEK_MODEL:-deepseek-chat}"; KEY_VAR="DEEPSEEK_API_KEY" ;;
+  deepseek) MODEL="deepseek:${DEEPSEEK_MODEL:-deepseek-flash}"; KEY_VAR="DEEPSEEK_API_KEY" ;;
   openai)   MODEL="openai:${OPENAI_MODEL:-gpt-5.4-mini}"; KEY_VAR="OPENAI_API_KEY" ;;
   *)        die "unknown provider '$1' (want: ollama|deepseek|openai)" ;;
 esac
